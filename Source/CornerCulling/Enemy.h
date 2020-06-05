@@ -37,9 +37,6 @@ public:
 	UPROPERTY(EditAnywhere)
 	class UMaterialInterface* InvisibleMaterial;
 
-	UPROPERTY(EditAnywhere)
-	AActor* PlayerCharacter;
-
 	void SetVisible();
 	void SetInvisible();
 	// Get half of the angular width of the enemy from the player's perspective.
