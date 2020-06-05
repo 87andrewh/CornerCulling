@@ -23,8 +23,6 @@ protected:
 	virtual void BeginPlay() override;
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
-	// Get angle between 2 vectors in all quadrants.
-	static float GetAngle(FVector V1, FVector V2);
 
 public:
 	ACornerCullingGameMode();

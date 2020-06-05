@@ -3,7 +3,7 @@
 #include "CullingBox.h"
 #include "DrawDebugHelpers.h"
 #include "Components/StaticMeshComponent.h"
-#include "DrawDebugHelpers.h"
+#include "Utils.h"
 #include "Components/BoxComponent.h"
 
 // Sets default values
@@ -22,6 +22,7 @@ void ACullingBox::BeginPlay()
 	Super::BeginPlay();
 
 	Center = GetActorLocation();
+	Center.Z = 300;
 	//FVector CornerLocations [N];
 	//FVector ToCenter [N];
 	FVector Extents = Box->GetScaledBoxExtent();
@@ -46,31 +47,31 @@ void ACullingBox::BeginPlay()
  
 /** Get indices of the two corners that could hide an enemy from the player, storing them in Corner1/2.
 */
-void ACullingBox::GetRelevantCorners(AActor* Player, int* Corner1, int* Corner2)
+void ACullingBox::GetRelevantCorners(AActor* Player, int* CornerLeftI, int* CornerRightI)
 {
 	FVector PlayerLocation = Player->GetActorLocation();
 	FVector PlayerToCenter = Center - PlayerLocation;
+	// Angle between PlayerToCenter and PlayerToCorner
+	float Angle;
 	float Min = FLT_MAX;
 	float Max = FLT_MIN;
 	int MinIndex = 0;
 	int MaxIndex = 0;
-	// Z component of cross products between PlayerToCenter and  PlayerToCorner
-	float CrossZ;
 	for (int i = 0; i < N; i++)
 	{
 		FVector PlayerToCorner = CornerLocations[i] - PlayerLocation;
-		CrossZ = FVector::CrossProduct(PlayerToCenter, PlayerToCorner).Z;
-		if (CrossZ < Min)
+		Angle = Utils::GetAngle(PlayerToCenter, PlayerToCorner);
+		if (Angle < Min)
 		{
-			Min = CrossZ;
+			Min = Angle;
 			MinIndex = i;
 		}
-		if (CrossZ > Max)
+		if (Angle > Max)
 		{
-			Max = CrossZ;
+			Max = Angle;
 			MaxIndex = i;
 		}
 	}
-	*Corner1 = MinIndex;
-	*Corner2 = MaxIndex;
+	*CornerLeftI = MinIndex;
+	*CornerRightI = MaxIndex;
 }

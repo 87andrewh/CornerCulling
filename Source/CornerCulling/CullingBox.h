@@ -43,5 +43,5 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	void GetRelevantCorners(AActor* Player, int* Corner1, int* Corner2);
+	void GetRelevantCorners(AActor* Player, int* CornerLeftI, int* CornerRightI);
 };

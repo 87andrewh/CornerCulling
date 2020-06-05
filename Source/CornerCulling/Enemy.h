@@ -22,7 +22,12 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* Mesh;
 
-	float Width = 30.f;
+	// Width of prism along X or Y axis.
+	float BaseWidth = 35.f;
+	// Additional width between corners along XY axis.
+	float CornerExtraWidth = BaseWidth * (2 / sqrt(2) - 1);
+	// Unit vector from center of the enemy to a corner.
+	FVector CenterToCorner;
 
 	bool IsVisible = false;
 
@@ -37,6 +42,9 @@ public:
 
 	void SetVisible();
 	void SetInvisible();
+	// Get half of the angular width of the enemy from the player's perspective.
+	// Note: Distance is explicit so we don't worry about normalized vectors.
+	float GetHalfAngularWidth(FVector PlayerToEnemy, float Distance);
 
 	virtual void Tick(float DeltaTime) override;
 };

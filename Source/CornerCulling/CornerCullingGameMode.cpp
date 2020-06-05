@@ -6,8 +6,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "CullingBox.h"
 #include "EngineUtils.h"
-//#include "atan.cpp"
 #include <cmath>
+#include "Utils.h"
 #include "DrawDebugHelpers.h"
 #include <Runtime\Engine\Classes\Kismet\GameplayStatics.h>
 
@@ -41,14 +41,6 @@ void ACornerCullingGameMode::BeginPlay() {
     }
 }
 
-// Get the angle between two FVectors of the form (X, Y, 0)
-// Returns angles in the full range (-PI, PI)
-float ACornerCullingGameMode::GetAngle(FVector V1, FVector V2) {
-	float Dot = FVector::DotProduct(V1, V2);
-	float Det = FVector::CrossProduct(V1, V2).Z;
-	return atan2f(Det, Dot);
-}
-
 // Reveal the enemy to the player.
 // Should integrate with networking protocol.
 void ACornerCullingGameMode::Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy) {
@@ -66,6 +58,7 @@ void ACornerCullingGameMode::CornerCull() {
 	FVector PlayerLocation;
 	FVector EnemyLocation;
 	FVector PlayerToEnemy;
+	float EnemyDistance;
 	TArray<FVector> CornerLocations;
 	// Index of corners
 	int CornerLeftI;
@@ -75,23 +68,26 @@ void ACornerCullingGameMode::CornerCull() {
 	FVector PlayerToCornerRight;
 	FVector PlayerToCenter;
 	FVector EnemyToCornerLeft;
+	FVector EnemyToCornerRight;
 	FVector CornerLeftToCenter;
+	FVector CornerRightToCenter;
 	// Used to store Z componets of various cross products.
 	// Used to determine relative positions and angles.
 	float Cross1Z;
 	float Cross2Z;
-	float EnemyDistance;
 	// Enables accurate culling at all distances.
-	float EnemyAngularWidth;
+	float EnemyHalfAngularWidth;
 	// Angle between PlayerToCenter and PlayerToCornerLeft/Right
 	float AngleLeft;
 	float AngleRight;
 	// Angle between PlayerToCenter and PlayerToEnemy
 	float AngleEnemy;
+	// Tracks if each corner is between the player and the enemy.
+	bool CornerLeftBetween;
+	bool CornerRightBetween;
 	// Tracks if the enemy is peeking out of the left or right corners.
 	bool PeekingLeft;
 	bool PeekingRight;
-	
 	//int count; //debug
 	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::FromInt(count));
 	for (ACornerCullingCharacter* Player : Players)
@@ -102,14 +98,13 @@ void ACornerCullingGameMode::CornerCull() {
 			BlockingCount = 0;
 			// Call PVS culling between player and enemy.
 			// if (!IsPotentiallyVisible(Enemy)) continue;
+			// Note: Consider speed optimization of showing recently revealed enemies.
 
 			EnemyLocation = Enemy->GetActorLocation();
 			PlayerToEnemy = EnemyLocation - PlayerLocation;
-			EnemyDistance = PlayerToEnemy.Size();
-			PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(1e-6);
-
-			// Calculate enemy angular width.
-			EnemyAngularWidth = atan(Enemy->Width / EnemyDistance);
+			EnemyDistance = PlayerToEnemy.Size2D();
+			EnemyHalfAngularWidth = Enemy->GetHalfAngularWidth(PlayerToEnemy, EnemyDistance);
+			PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
 			// NOTE: Might be able to precompute relevant boxes per PVS region.
 			for (ACullingBox* Box : Boxes) {
@@ -118,36 +113,42 @@ void ACornerCullingGameMode::CornerCull() {
 				Box->GetRelevantCorners(Player, &CornerLeftI, &CornerRightI);
 				// Get vectors used to determine if the corner is between player and enemy.
 				PlayerToCornerLeft = CornerLocations[CornerLeftI] - PlayerLocation;
+				PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
 				EnemyToCornerLeft = CornerLocations[CornerLeftI] - EnemyLocation;
+				EnemyToCornerRight = CornerLocations[CornerRightI] - EnemyLocation;
 				CornerLeftToCenter = Box->CornerToCenter[CornerLeftI];
+				CornerRightToCenter = Box->CornerToCenter[CornerRightI];
 				Cross1Z = FVector::CrossProduct(PlayerToCornerLeft, CornerLeftToCenter).Z;
 				Cross2Z = FVector::CrossProduct(EnemyToCornerLeft, CornerLeftToCenter).Z;
 				// If the signs differ, then the corner sits between the player and the enemy.
-				if ((Cross1Z > 0) ^ (Cross2Z > 0)) {
+				CornerLeftBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
+				Cross1Z = FVector::CrossProduct(PlayerToCornerRight, CornerRightToCenter).Z;
+				Cross2Z = FVector::CrossProduct(EnemyToCornerRight, CornerRightToCenter).Z;
+				CornerRightBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
+				if (CornerLeftBetween || CornerRightBetween) {
 					PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
 					// Normalize vectors needed to calculate angles.
 					// TODO: Handle the case when the vectors are 0.
-					PlayerToCornerLeft = PlayerToCornerLeft.GetSafeNormal2D(1e-6);
-					PlayerToCornerRight = PlayerToCornerRight.GetSafeNormal2D(1e-6);
+					PlayerToCornerLeft = PlayerToCornerLeft.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
+					PlayerToCornerRight = PlayerToCornerRight.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 					PlayerToCenter = Box->Center - PlayerLocation;
-					PlayerToCenter = PlayerToCenter.GetSafeNormal2D(1e-6);
+					PlayerToCenter = PlayerToCenter.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
-					AngleLeft = GetAngle(PlayerToCenter, PlayerToCornerLeft);
-					AngleRight = GetAngle(PlayerToCenter, PlayerToCornerRight);
-					AngleEnemy = GetAngle(PlayerToCenter, PlayerToEnemy);
+					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
+					AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
+					AngleEnemy = Utils::GetAngle(PlayerToCenter, PlayerToEnemy);
 
-					PeekingLeft = (AngleLeft > AngleEnemy - EnemyAngularWidth);
-					PeekingRight = (AngleRight < AngleEnemy + EnemyAngularWidth);
+					PeekingLeft = (AngleLeft > AngleEnemy - EnemyHalfAngularWidth);
+					PeekingRight = (AngleRight < AngleEnemy + EnemyHalfAngularWidth);
 				
-					// Enemy is peeking neither left or right. This box blocks LOS.
+					// Enemy is peeking neither left nor right. This box blocks LOS.
 					if (!(PeekingLeft || PeekingRight)) {
 						BlockingCount += 1;
 					}
 				}
-
 			}
 			if (BlockingCount == 0) {
-				DrawDebugLine(GetWorld(), PlayerLocation, PlayerLocation + 800.f * PlayerToEnemy, FColor::Emerald, false, 0.1f, 0, 0.2f);
+				//DrawDebugLine(GetWorld(), PlayerLocation, PlayerLocation + 800.f * PlayerToEnemy, FColor::Emerald, false, 0.1f, 0, 0.2f);
 				Reveal(Player, Enemy);
 			} else {
 				// For demo purposes, remove in production.
