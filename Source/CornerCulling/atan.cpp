@@ -1,6 +1,6 @@
+#include "atan.h"
 #include <math.h>
 #include <stdint.h>
-#include "atan.h"
 
 //
 // xiezhq@shanghaitech.edu.cn && wanghe@shanghaitech.edu.cn

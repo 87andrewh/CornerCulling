@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include  "Enemy.h"
-#include  "CornerMark.h"
+//#include "Enemy.h"
+//#include "CornerMark.h"
 #include "CornerCullingCharacter.generated.h"
 
 class UInputComponent;
@@ -78,12 +78,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	uint32 bUsingMotionControllers : 1;
 
-	UPROPERTY(Category = Character, EditAnywhere)
-	class ACornerMark* Mark = NULL;
-
-	UPROPERTY(Category = Character, EditAnywhere)
-	class AEnemy* Enemy = NULL;
-
 protected:
 
 	/** Fires a projectile. */
@@ -106,9 +100,6 @@ protected:
 	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	 */
 	void LookUpAtRate(float Rate);
-	
-	/** Cull Enemies */
-	void Cull();
 
 protected:
 	// APawn interface

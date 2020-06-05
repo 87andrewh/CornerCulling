@@ -4,7 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/BoxComponent.h"
+//#include "Components/StaticMeshComponent.h"
+//#include "Components/BoxComponent.h"
 #include "CullingBox.generated.h"
 
 UCLASS()
@@ -16,8 +17,11 @@ public:
 	// Sets default values for this actor's properties
 	ACullingBox();
 
-	UPROPERTY(Category = Box, VisibleAnywhere)
-	UBoxComponent* Mesh;
+	UPROPERTY(VisibleDefaultsOnly)
+	class UStaticMeshComponent* Mesh;
+	UPROPERTY(VisibleAnywhere)
+	class UBoxComponent* Box;
+
 	// Number of corners.
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	int N = 4;
@@ -39,7 +43,5 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+	void GetRelevantCorners(AActor* Player, int* Corner1, int* Corner2);
 };

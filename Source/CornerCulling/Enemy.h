@@ -22,7 +22,7 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* Mesh;
 
-	float Width = 80.f;
+	float Width = 30.f;
 
 	bool IsVisible = false;
 

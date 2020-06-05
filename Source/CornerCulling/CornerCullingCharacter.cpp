@@ -9,7 +9,6 @@
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
-#include "atan.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -169,30 +168,4 @@ void ACornerCullingCharacter::LookUpAtRate(float Rate)
 void ACornerCullingCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	Cull();
-}
-
-void ACornerCullingCharacter::Cull()
-{
-	if (Enemy != NULL && Mark != NULL) {
-		FVector CameraLocation = FirstPersonCameraComponent->GetComponentLocation();
-		FVector CameraToCorner = FVector(Mark->GetActorLocation()
-										 - CameraLocation);
-		CameraToCorner = CameraToCorner.GetSafeNormal2D(0.001f);
-		FVector CameraToEnemy = FVector(Enemy->GetActorLocation()
-										- CameraLocation);
-		float EnemyDistance = CameraToEnemy.Size();
-		CameraToEnemy = CameraToEnemy.GetSafeNormal2D(0.001f); 
-		FVector Cross = FVector::CrossProduct(CameraToEnemy, CameraToCorner);
-		float CrossZ = Cross.Z;
-
-		float CullingThreshold = CullingGain * atan_fast(Enemy->Width / EnemyDistance);
-
-		if ((0.f < CrossZ) && (CrossZ < CullingThreshold)) {
-			Enemy->SetVisible();
-		}
-		else if ((CullingThreshold <= CrossZ) && (CrossZ < 2 * CullingThreshold)) {
-			Enemy->SetInvisible();
-		}
-	}
 }
