@@ -151,6 +151,7 @@ void ACornerCullingGameMode::CornerCull() {
 					// Enemy is peeking neither left nor right. This box blocks LOS.
 					if (!(PeekingLeft || PeekingRight)) {
 						BlockingCount += 1;
+						break;
 					}
 				}
 			}
