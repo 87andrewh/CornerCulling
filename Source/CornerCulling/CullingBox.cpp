@@ -30,15 +30,14 @@ void ACullingBox::BeginPlay()
 
 	// Initialize corner locations.
 	// TODO: N is a variable, but corners are hardcoded for cubes.
-	CornerLocations.AddUninitialized(N);
-
+	CornerLocations.SetNum(N);
 	CornerLocations[0] = Center + Rotator.RotateVector(FVector(Extents.X, Extents.Y, 0));
 	CornerLocations[1] = Center + Rotator.RotateVector(FVector(Extents.X, -Extents.Y, 0));
 	CornerLocations[2] = Center + Rotator.RotateVector(FVector(-Extents.X, Extents.Y, 0));
 	CornerLocations[3] = Center + Rotator.RotateVector(FVector(-Extents.X, -Extents.Y, 0));
 
 	// Initialize corner to center vectors.
-	CornerToCenter.AddUninitialized(N);
+	CornerToCenter.SetNum(N);
 	CornerToCenter[0] = Center - CornerLocations[0];
 	CornerToCenter[1] = Center - CornerLocations[1];
 	CornerToCenter[2] = Center - CornerLocations[2];
@@ -47,19 +46,19 @@ void ACullingBox::BeginPlay()
  
 /** Get indices of the two corners that could hide an enemy from the player, storing them in Corner1/2.
 */
-void ACullingBox::GetRelevantCorners(AActor* Player, int* CornerLeftI, int* CornerRightI)
+void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, int& CornerLeftI, int& CornerRightI)
 {
-	FVector PlayerLocation = Player->GetActorLocation();
 	FVector PlayerToCenter = Center - PlayerLocation;
 	// Angle between PlayerToCenter and PlayerToCorner
 	float Angle;
 	float Min = FLT_MAX;
 	float Max = FLT_MIN;
-	int MinIndex = 0;
-	int MaxIndex = 0;
+	int MinIndex;
+	int MaxIndex;
 	for (int i = 0; i < N; i++)
 	{
 		FVector PlayerToCorner = CornerLocations[i] - PlayerLocation;
+		// NOTE: Big oppurtinty for optimization by using a faster metric
 		Angle = Utils::GetAngle(PlayerToCenter, PlayerToCorner);
 		if (Angle < Min)
 		{
@@ -72,6 +71,6 @@ void ACullingBox::GetRelevantCorners(AActor* Player, int* CornerLeftI, int* Corn
 			MaxIndex = i;
 		}
 	}
-	*CornerLeftI = MinIndex;
-	*CornerRightI = MaxIndex;
+	CornerLeftI = MinIndex;
+	CornerRightI = MaxIndex;
 }

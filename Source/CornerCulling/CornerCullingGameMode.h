@@ -24,6 +24,10 @@ protected:
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
 
+	// TODO: Code for benchmarking, delete in production
+	int count;
+	float totaltime;
+
 public:
 	ACornerCullingGameMode();
 	virtual void Tick(float DeltaTime) override;

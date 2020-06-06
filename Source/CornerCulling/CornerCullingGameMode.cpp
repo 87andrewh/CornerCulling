@@ -9,6 +9,7 @@
 #include <cmath>
 #include "Utils.h"
 #include "DrawDebugHelpers.h"
+#include <chrono> 
 #include <Runtime\Engine\Classes\Kismet\GameplayStatics.h>
 
 ACornerCullingGameMode::ACornerCullingGameMode()
@@ -39,6 +40,8 @@ void ACornerCullingGameMode::BeginPlay() {
     {
           Boxes.Add(Box);
     }
+	count = 0;
+	totaltime = 0;
 }
 
 // Reveal the enemy to the player.
@@ -53,6 +56,10 @@ void ACornerCullingGameMode::Reveal(ACornerCullingCharacter* Player, AEnemy* Ene
 // Can be sped up by building on top of PVS checks.
 // Note: If more even speed is desired, the algorithm is straightforward to parallelize
 void ACornerCullingGameMode::CornerCull() {
+	// Benchmark
+	auto start = std::chrono::high_resolution_clock::now();
+	// Benchmark
+
 	// Number of boxes blocking LOS between each Player/Enemy pair.
 	int BlockingCount;
 	FVector PlayerLocation;
@@ -88,18 +95,15 @@ void ACornerCullingGameMode::CornerCull() {
 	// Tracks if the enemy is peeking out of the left or right corners.
 	bool PeekingLeft;
 	bool PeekingRight;
-	//int count; //debug
-	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::FromInt(count));
 	for (ACornerCullingCharacter* Player : Players)
 	{
 		PlayerLocation = Player->GetActorLocation();
 		for (AEnemy* Enemy : Enemies)
 		{
 			BlockingCount = 0;
-			// Call PVS culling between player and enemy.
+			// Call PVS culling between player and enemy. Should be a big speedup.
 			// if (!IsPotentiallyVisible(Enemy)) continue;
-			// Note: Consider speed optimization of showing recently revealed enemies.
-
+			// Note: Consider small +speed -accuracy tadeoff showing recently revealed enemies.
 			EnemyLocation = Enemy->GetActorLocation();
 			PlayerToEnemy = EnemyLocation - PlayerLocation;
 			EnemyDistance = PlayerToEnemy.Size2D();
@@ -107,10 +111,11 @@ void ACornerCullingGameMode::CornerCull() {
 			PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
 			// NOTE: Might be able to precompute relevant boxes per PVS region.
+			// NOTE: Might try to cache vectors between Player and corners across enemies.
 			for (ACullingBox* Box : Boxes) {
 				CornerLocations = Box->CornerLocations;
 				// Get get indicies of the leftmost and rightmost corners.
-				Box->GetRelevantCorners(Player, &CornerLeftI, &CornerRightI);
+				Box->GetRelevantCorners(PlayerLocation, CornerLeftI, CornerRightI);
 				// Get vectors used to determine if the corner is between player and enemy.
 				PlayerToCornerLeft = CornerLocations[CornerLeftI] - PlayerLocation;
 				PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
@@ -118,21 +123,23 @@ void ACornerCullingGameMode::CornerCull() {
 				EnemyToCornerRight = CornerLocations[CornerRightI] - EnemyLocation;
 				CornerLeftToCenter = Box->CornerToCenter[CornerLeftI];
 				CornerRightToCenter = Box->CornerToCenter[CornerRightI];
-				Cross1Z = FVector::CrossProduct(PlayerToCornerLeft, CornerLeftToCenter).Z;
-				Cross2Z = FVector::CrossProduct(EnemyToCornerLeft, CornerLeftToCenter).Z;
+				// Use cross products to determine if the corner is between player and enemy.
+				Cross1Z = PlayerToCornerLeft.X * CornerLeftToCenter.Y
+						  - PlayerToCornerLeft.Y * CornerLeftToCenter.X;
+				Cross2Z = EnemyToCornerLeft.X * CornerLeftToCenter.Y
+						  - EnemyToCornerLeft.Y * CornerLeftToCenter.X;
 				// If the signs differ, then the corner sits between the player and the enemy.
 				CornerLeftBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
-				Cross1Z = FVector::CrossProduct(PlayerToCornerRight, CornerRightToCenter).Z;
-				Cross2Z = FVector::CrossProduct(EnemyToCornerRight, CornerRightToCenter).Z;
+				Cross1Z = PlayerToCornerRight.X * CornerRightToCenter.Y
+						  - PlayerToCornerRight.Y * CornerRightToCenter.X;
+				Cross2Z = EnemyToCornerRight.X * CornerRightToCenter.Y
+						  - EnemyToCornerRight.Y * CornerRightToCenter.X;
 				CornerRightBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
 				if (CornerLeftBetween || CornerRightBetween) {
 					PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
 					// Normalize vectors needed to calculate angles.
 					// TODO: Handle the case when the vectors are 0.
-					PlayerToCornerLeft = PlayerToCornerLeft.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
-					PlayerToCornerRight = PlayerToCornerRight.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 					PlayerToCenter = Box->Center - PlayerLocation;
-					PlayerToCenter = PlayerToCenter.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
 					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
 					AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
@@ -148,7 +155,6 @@ void ACornerCullingGameMode::CornerCull() {
 				}
 			}
 			if (BlockingCount == 0) {
-				//DrawDebugLine(GetWorld(), PlayerLocation, PlayerLocation + 800.f * PlayerToEnemy, FColor::Emerald, false, 0.1f, 0, 0.2f);
 				Reveal(Player, Enemy);
 			} else {
 				// For demo purposes, remove in production.
@@ -156,6 +162,14 @@ void ACornerCullingGameMode::CornerCull() {
 			}
 		}
 	}
+	// Benchmark
+	auto stop = std::chrono::high_resolution_clock::now();
+	double delta = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
+	count++;
+	totaltime += delta;
+	FString TimeMessage = "Average Time to cull (microseconds): " + FString::SanitizeFloat(totaltime / count);
+	if(GEngine && (count % 60 == 0))
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TimeMessage, true);
 }
 
 void ACornerCullingGameMode::Tick(float DeltaTime)
