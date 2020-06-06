@@ -53,13 +53,13 @@ void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, int& CornerL
 	float Angle;
 	float Min = FLT_MAX;
 	float Max = FLT_MIN;
-	int MinIndex;
-	int MaxIndex;
+	int MinIndex = 0;
+	int MaxIndex = 0;
 	for (int i = 0; i < N; i++)
 	{
 		FVector PlayerToCorner = CornerLocations[i] - PlayerLocation;
-		// NOTE: Big oppurtinty for optimization by using a faster metric
-		Angle = Utils::GetAngle(PlayerToCenter, PlayerToCorner);
+		// NOTE: Confident, but not certain that GetAngleFast maintains correctness.
+		Angle = Utils::GetAngleFast(PlayerToCenter, PlayerToCorner);
 		if (Angle < Min)
 		{
 			Min = Angle;

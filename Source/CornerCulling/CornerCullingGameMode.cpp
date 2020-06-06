@@ -60,8 +60,6 @@ void ACornerCullingGameMode::CornerCull() {
 	auto start = std::chrono::high_resolution_clock::now();
 	// Benchmark
 
-	// Number of boxes blocking LOS between each Player/Enemy pair.
-	int BlockingCount;
 	FVector PlayerLocation;
 	FVector EnemyLocation;
 	FVector PlayerToEnemy;
@@ -89,6 +87,8 @@ void ACornerCullingGameMode::CornerCull() {
 	float AngleRight;
 	// Angle between PlayerToCenter and PlayerToEnemy
 	float AngleEnemy;
+	// Tracks if LOS between player and enemy is blocked.
+	bool Blocked;
 	// Tracks if each corner is between the player and the enemy.
 	bool CornerLeftBetween;
 	bool CornerRightBetween;
@@ -100,7 +100,7 @@ void ACornerCullingGameMode::CornerCull() {
 		PlayerLocation = Player->GetActorLocation();
 		for (AEnemy* Enemy : Enemies)
 		{
-			BlockingCount = 0;
+			Blocked = false;
 			// Call PVS culling between player and enemy. Should be a big speedup.
 			// if (!IsPotentiallyVisible(Enemy)) continue;
 			// Note: Consider small +speed -accuracy tadeoff showing recently revealed enemies.
@@ -110,8 +110,8 @@ void ACornerCullingGameMode::CornerCull() {
 			EnemyHalfAngularWidth = Enemy->GetHalfAngularWidth(PlayerToEnemy, EnemyDistance);
 			PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
-			// NOTE: Might be able to precompute relevant boxes per PVS region.
-			// NOTE: Might try to cache vectors between Player and corners across enemies.
+			// NOTE: Could precompute relevant boxes per PVS region, or ordering boxes by relevance.
+			// NOTE: Could try to cache relevant corners across enemies.
 			for (ACullingBox* Box : Boxes) {
 				CornerLocations = Box->CornerLocations;
 				// Get get indicies of the leftmost and rightmost corners.
@@ -150,12 +150,12 @@ void ACornerCullingGameMode::CornerCull() {
 				
 					// Enemy is peeking neither left nor right. This box blocks LOS.
 					if (!(PeekingLeft || PeekingRight)) {
-						BlockingCount += 1;
+						Blocked = true;
 						break;
 					}
 				}
 			}
-			if (BlockingCount == 0) {
+			if (!Blocked) {
 				Reveal(Player, Enemy);
 			} else {
 				// For demo purposes, remove in production.

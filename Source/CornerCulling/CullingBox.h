@@ -25,9 +25,6 @@ public:
 	// Number of corners.
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	int N = 4;
-	// Arbitrary forward direction, used to order corners
-	UPROPERTY(Category = Box, VisibleAnywhere)
-	FVector Forward;
 	// List of corners positions, ordered clockwise from forward vector
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	TArray<FVector> CornerLocations;
