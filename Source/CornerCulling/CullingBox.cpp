@@ -58,7 +58,7 @@ void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, int& CornerL
 	for (int i = 0; i < N; i++)
 	{
 		FVector PlayerToCorner = CornerLocations[i] - PlayerLocation;
-		// NOTE: Confident, but not certain that GetAngleFast maintains correctness.
+		// NOTE: Much faster than GetAngle, but not rigorously tested.
 		Angle = Utils::GetAngleFast(PlayerToCenter, PlayerToCorner);
 		if (Angle < Min)
 		{
