@@ -6,4 +6,4 @@ Given 50 LOS checks and 40 possible occluding objects,
 computes pixel-perfect occlusion in ~100 microseconds on i5 6600k.
 
 Demo:
-https://youtu.be/Osg6FjpZDLM
+https://youtu.be/e6rjJtcdKfw
