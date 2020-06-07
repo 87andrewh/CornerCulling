@@ -40,7 +40,7 @@ public:
 	void SetInvisible();
 	// Get half of the angular width of the enemy from the player's perspective.
 	// Note: Distance is explicit so we don't worry about normalized vectors.
-	float GetHalfAngularWidth(FVector PlayerToEnemy, float Distance);
+	float GetHalfAngularWidth(FVector& PlayerToEnemy, float Distance);
 
 	virtual void Tick(float DeltaTime) override;
 };

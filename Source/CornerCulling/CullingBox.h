@@ -30,7 +30,10 @@ public:
 	TArray<FVector> CornerLocations;
 	// Center of box
 	UPROPERTY(Category = Box, VisibleAnywhere)
-	FVector Center; 
+	FVector Center;
+	// Z coordinate of the top of the box
+	UPROPERTY(Category = Box, VisibleAnywhere)
+	float TopZ;
 
 protected:
 	// Called when the game starts or when spawned

@@ -68,7 +68,6 @@ void ACornerCullingCharacter::BeginPlay()
 
 	// Show the single player gun mesh.
 	Mesh1P->SetHiddenInGame(false, true);
-
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -168,4 +167,9 @@ void ACornerCullingCharacter::LookUpAtRate(float Rate)
 void ACornerCullingCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+FVector ACornerCullingCharacter::GetCameraLocation()
+{
+	return GetFirstPersonCameraComponent()->GetComponentLocation();
 }

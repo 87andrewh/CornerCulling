@@ -43,9 +43,9 @@ void AEnemy::SetInvisible() {
 
 // Get half of the enemy's angular width's from the player's perspective.
 // Currently implemented for boxes, but you could extend it to account for guns sticking out.
-float AEnemy::GetHalfAngularWidth(FVector PlayerToEnemy, float Distance) {
+float AEnemy::GetHalfAngularWidth(FVector& PlayerToEnemy, float Distance) {
 	PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
-	float cos = FVector::DotProduct(PlayerToEnemy, CenterToCorner);
+	float cos = PlayerToEnemy.X * CenterToCorner.X + PlayerToEnemy.Y * CenterToCorner.Y;
 	// Largest cosine of angle between PlayerToEnemy and and CenterToCorner
 	// for all corners. Uses double angle identity.
 	// Corners contribute the most width when protruding out perpendicular to PlayerToEnemy.

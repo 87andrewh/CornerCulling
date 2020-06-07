@@ -96,7 +96,7 @@ void ACornerCullingGameMode::CornerCull() {
 	bool PeekingRight;
 	for (ACornerCullingCharacter* Player : Players)
 	{
-		PlayerLocation = Player->GetActorLocation();
+		PlayerLocation = Player->GetCameraLocation();
 		for (AEnemy* Enemy : Enemies)
 		{
 			Blocked = false;
@@ -111,6 +111,10 @@ void ACornerCullingGameMode::CornerCull() {
 
 			// NOTE: Could precompute relevant boxes per PVS region or pair of regions.
 			for (ACullingBox* Box : Boxes) {
+				// Rough solution for considering Z axis.
+				if (PlayerLocation.Z > Box->TopZ) {
+					continue;
+				}
 				// Set pointers to the left and right corners
 				Box->GetRelevantCorners(PlayerLocation, CornerLeft, CornerRight);
 				// Get vectors used to determine if the corner is between player and enemy.
@@ -163,9 +167,12 @@ void ACornerCullingGameMode::CornerCull() {
 	double delta = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
 	count++;
 	totaltime += delta;
-	FString TimeMessage = "Average Time to cull (microseconds): " + FString::SanitizeFloat(totaltime / count);
-	if(GEngine && (count % 60 == 0))
-		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TimeMessage, true);
+	FString AverageMessage = "Average time to cull (microseconds): " + FString::SanitizeFloat(totaltime / count);
+	FString DeltaMessage = "This tick time to cull (microseconds): " + FString::SanitizeFloat(delta);
+	if (GEngine && (count % 60 == 0)) {
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Yellow, AverageMessage, true, FVector2D(1.5f, 1.5f));
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Yellow, DeltaMessage, true, FVector2D(1.5f, 1.5f));
+	}
 }
 
 void ACornerCullingGameMode::Tick(float DeltaTime)

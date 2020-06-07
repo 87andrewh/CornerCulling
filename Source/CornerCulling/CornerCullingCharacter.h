@@ -4,8 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-//#include "Enemy.h"
-//#include "CornerMark.h"
+#include "Camera/CameraComponent.h"
 #include "CornerCullingCharacter.generated.h"
 
 class UInputComponent;
@@ -37,7 +36,7 @@ class ACornerCullingCharacter : public ACharacter
 
 	/** First person camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	class UCameraComponent* FirstPersonCameraComponent;
+	UCameraComponent* FirstPersonCameraComponent;
 
 	/** Used to tune how soon Enemies are culled/revealed when they cross a corner */
 	UPROPERTY(EditAnywhere)
@@ -109,5 +108,6 @@ public:
 	/** Returns Mesh1P subobject **/
 	FORCEINLINE class USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
-	FORCEINLINE class UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
+	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
+	FVector GetCameraLocation();
 };

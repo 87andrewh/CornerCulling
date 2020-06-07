@@ -22,12 +22,11 @@ void ACullingBox::BeginPlay()
 	Super::BeginPlay();
 
 	Center = GetActorLocation();
-	Center.Z = 300;
 	//FVector CornerLocations [N];
 	//FVector ToCenter [N];
 	FVector Extents = Box->GetScaledBoxExtent();
+	TopZ = Center.Z + Extents.Z;
 	FRotator Rotator = GetActorRotation();
-
 	// Initialize corner locations.
 	// TODO: N is a variable, but corners are hardcoded for cubes.
 	CornerLocations.SetNum(N);
