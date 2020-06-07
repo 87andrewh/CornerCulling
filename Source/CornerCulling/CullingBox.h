@@ -25,20 +25,19 @@ public:
 	// Number of corners.
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	int N = 4;
-	// List of corners positions, ordered clockwise from forward vector
+	// List of corner positions
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	TArray<FVector> CornerLocations;
 	// Center of box
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	FVector Center; 
-	// Vectors from corners to the center
-	UPROPERTY(Category = Box, VisibleAnywhere)
-	TArray<FVector> CornerToCenter;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
-	void GetRelevantCorners(const FVector& PlayerLocation, int& CornerLeftI, int& CornerRightI);
+public:
+	// Return pointers to the two corners that define the edges of the object
+	// from the player's perspective.
+	void GetRelevantCorners(const FVector& PlayerLocation, FVector& CornerLeft, FVector& CornerRight);
 };

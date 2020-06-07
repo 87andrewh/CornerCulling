@@ -3,12 +3,12 @@
 #include "CornerCullingGameMode.h"
 #include "CornerCullingHUD.h"
 #include "CornerCullingCharacter.h"
-#include "UObject/ConstructorHelpers.h"
 #include "CullingBox.h"
 #include "EngineUtils.h"
-#include <cmath>
 #include "Utils.h"
+#include "UObject/ConstructorHelpers.h"
 #include "DrawDebugHelpers.h"
+#include <cmath>
 #include <chrono> 
 #include <Runtime\Engine\Classes\Kismet\GameplayStatics.h>
 
@@ -64,10 +64,9 @@ void ACornerCullingGameMode::CornerCull() {
 	FVector EnemyLocation;
 	FVector PlayerToEnemy;
 	float EnemyDistance;
-	TArray<FVector> CornerLocations;
-	// Index of corners
-	int CornerLeftI;
-	int CornerRightI;
+	// Pointers to left and right relevant corners
+	FVector CornerLeft = FVector();
+	FVector CornerRight = FVector();
 	// Vectors from point A to B.
 	FVector PlayerToCornerLeft;
 	FVector PlayerToCornerRight;
@@ -110,47 +109,43 @@ void ACornerCullingGameMode::CornerCull() {
 			EnemyHalfAngularWidth = Enemy->GetHalfAngularWidth(PlayerToEnemy, EnemyDistance);
 			PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
 
-			// NOTE: Could precompute relevant boxes per PVS region, or ordering boxes by relevance.
-			// NOTE: Could try to cache relevant corners across enemies.
+			// NOTE: Could precompute relevant boxes per PVS region or pair of regions.
 			for (ACullingBox* Box : Boxes) {
-				CornerLocations = Box->CornerLocations;
-				// Get get indicies of the leftmost and rightmost corners.
-				Box->GetRelevantCorners(PlayerLocation, CornerLeftI, CornerRightI);
+				// Set pointers to the left and right corners
+				Box->GetRelevantCorners(PlayerLocation, CornerLeft, CornerRight);
 				// Get vectors used to determine if the corner is between player and enemy.
-				PlayerToCornerLeft = CornerLocations[CornerLeftI] - PlayerLocation;
-				PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
-				EnemyToCornerLeft = CornerLocations[CornerLeftI] - EnemyLocation;
-				EnemyToCornerRight = CornerLocations[CornerRightI] - EnemyLocation;
-				CornerLeftToCenter = Box->CornerToCenter[CornerLeftI];
-				CornerRightToCenter = Box->CornerToCenter[CornerRightI];
-				// Use cross products to determine if the corner is between player and enemy.
+				PlayerToCornerLeft = CornerLeft - PlayerLocation;
+				PlayerToCornerRight = CornerRight - PlayerLocation;
+				EnemyToCornerLeft = CornerLeft - EnemyLocation;
+				CornerLeftToCenter = Box->Center - CornerLeft;
+				// Use cross products to determine if the left corner is between player and enemy.
 				Cross1Z = PlayerToCornerLeft.X * CornerLeftToCenter.Y
 						  - PlayerToCornerLeft.Y * CornerLeftToCenter.X;
 				Cross2Z = EnemyToCornerLeft.X * CornerLeftToCenter.Y
 						  - EnemyToCornerLeft.Y * CornerLeftToCenter.X;
 				// If the signs differ, then the corner sits between the player and the enemy.
 				CornerLeftBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
-				Cross1Z = PlayerToCornerRight.X * CornerRightToCenter.Y
-						  - PlayerToCornerRight.Y * CornerRightToCenter.X;
-				Cross2Z = EnemyToCornerRight.X * CornerRightToCenter.Y
-						  - EnemyToCornerRight.Y * CornerRightToCenter.X;
-				CornerRightBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
+				// Need to check the right corner.
+				if (!CornerLeftBetween) {
+					EnemyToCornerRight = CornerRight - EnemyLocation;
+					CornerRightToCenter = Box->Center - CornerRight;
+					Cross1Z = PlayerToCornerRight.X * CornerRightToCenter.Y
+							  - PlayerToCornerRight.Y * CornerRightToCenter.X;
+					Cross2Z = EnemyToCornerRight.X * CornerRightToCenter.Y
+							  - EnemyToCornerRight.Y * CornerRightToCenter.X;
+					CornerRightBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
+				}
 				if (CornerLeftBetween || CornerRightBetween) {
-					PlayerToCornerRight = CornerLocations[CornerRightI] - PlayerLocation;
-					// Normalize vectors needed to calculate angles.
-					// TODO: Handle the case when the vectors are 0.
 					PlayerToCenter = Box->Center - PlayerLocation;
-
 					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
 					AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
 					AngleEnemy = Utils::GetAngle(PlayerToCenter, PlayerToEnemy);
-
 					PeekingLeft = (AngleLeft > AngleEnemy - EnemyHalfAngularWidth);
 					PeekingRight = (AngleRight < AngleEnemy + EnemyHalfAngularWidth);
-				
 					// Enemy is peeking neither left nor right. This box blocks LOS.
 					if (!(PeekingLeft || PeekingRight)) {
 						Blocked = true;
+						// Can skip checking other boxes.
 						break;
 					}
 				}

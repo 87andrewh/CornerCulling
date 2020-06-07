@@ -35,18 +35,11 @@ void ACullingBox::BeginPlay()
 	CornerLocations[1] = Center + Rotator.RotateVector(FVector(Extents.X, -Extents.Y, 0));
 	CornerLocations[2] = Center + Rotator.RotateVector(FVector(-Extents.X, Extents.Y, 0));
 	CornerLocations[3] = Center + Rotator.RotateVector(FVector(-Extents.X, -Extents.Y, 0));
-
-	// Initialize corner to center vectors.
-	CornerToCenter.SetNum(N);
-	CornerToCenter[0] = Center - CornerLocations[0];
-	CornerToCenter[1] = Center - CornerLocations[1];
-	CornerToCenter[2] = Center - CornerLocations[2];
-	CornerToCenter[3] = Center - CornerLocations[3];
 }
  
 /** Get indices of the two corners that could hide an enemy from the player, storing them in Corner1/2.
 */
-void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, int& CornerLeftI, int& CornerRightI)
+void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, FVector& CornerLeft, FVector& CornerRight)
 {
 	FVector PlayerToCenter = Center - PlayerLocation;
 	// Angle between PlayerToCenter and PlayerToCorner
@@ -71,6 +64,6 @@ void ACullingBox::GetRelevantCorners(const FVector& PlayerLocation, int& CornerL
 			MaxIndex = i;
 		}
 	}
-	CornerLeftI = MinIndex;
-	CornerRightI = MaxIndex;
+	CornerLeft = CornerLocations[MinIndex];
+	CornerRight = CornerLocations[MaxIndex];
 }

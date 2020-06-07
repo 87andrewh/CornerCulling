@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "CornerCullingCharacter.h"
+#include "CullingBox.h"
 #include "Enemy.generated.h"
 
 UCLASS(config=Game)
@@ -23,13 +24,11 @@ public:
 	UStaticMeshComponent* Mesh;
 
 	// Width of prism along X or Y axis.
-	float BaseWidth = 35.f;
+	float BaseWidth = 33.f;
 	// Additional width between corners along XY axis.
 	float CornerExtraWidth = BaseWidth * (2 / sqrt(2) - 1);
 	// Unit vector from center of the enemy to a corner.
 	FVector CenterToCorner;
-
-	bool IsVisible = false;
 
 	UPROPERTY(EditAnywhere)
 	class UMaterialInterface* VisibleMaterial;
