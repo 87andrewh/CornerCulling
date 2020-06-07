@@ -141,16 +141,17 @@ void ACornerCullingGameMode::CornerCull() {
 				}
 				if (CornerLeftBetween || CornerRightBetween) {
 					PlayerToCenter = Box->Center - PlayerLocation;
-					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
-					AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
 					AngleEnemy = Utils::GetAngle(PlayerToCenter, PlayerToEnemy);
+					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
 					PeekingLeft = (AngleLeft > AngleEnemy - EnemyHalfAngularWidth);
-					PeekingRight = (AngleRight < AngleEnemy + EnemyHalfAngularWidth);
-					// Enemy is peeking neither left nor right. This box blocks LOS.
-					if (!(PeekingLeft || PeekingRight)) {
-						Blocked = true;
-						// Can skip checking other boxes.
-						break;
+					if (!PeekingLeft) {
+						AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
+						PeekingRight = (AngleRight < AngleEnemy + EnemyHalfAngularWidth);
+						// Enemy is peeking neither left nor right. This box blocks LOS.
+						if (!PeekingRight) {
+							Blocked = true;
+							break;
+						}
 					}
 				}
 			}
