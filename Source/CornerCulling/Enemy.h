@@ -24,7 +24,7 @@ public:
 	UStaticMeshComponent* Mesh;
 
 	// Width of prism along X or Y axis.
-	float BaseWidth = 33.f;
+	float BaseWidth = 33.5f;
 	// Additional width between corners along XY axis.
 	float CornerExtraWidth = BaseWidth * (2 / sqrt(2) - 1);
 	// Unit vector from center of the enemy to a corner.
@@ -40,7 +40,7 @@ public:
 	void SetInvisible();
 	// Get half of the angular width of the enemy from the player's perspective.
 	// Note: Distance is explicit so we don't worry about normalized vectors.
-	float GetHalfAngularWidth(FVector& PlayerToEnemy, float Distance);
+	float GetHalfAngularWidth(const FVector2D& PlayerToEnemy, const float Distance);
 
 	virtual void Tick(float DeltaTime) override;
 };

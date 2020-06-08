@@ -27,10 +27,12 @@ public:
 	int N = 4;
 	// List of corner positions
 	UPROPERTY(Category = Box, VisibleAnywhere)
-	TArray<FVector> CornerLocations;
+	TArray<FVector2D> CornerLocations;
 	// Center of box
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	FVector Center;
+	UPROPERTY(Category = Box, VisibleAnywhere)
+	FVector2D Center2D;
 	// Z coordinate of the top of the box
 	UPROPERTY(Category = Box, VisibleAnywhere)
 	float TopZ;
@@ -42,5 +44,5 @@ protected:
 public:
 	// Return pointers to the two corners that define the edges of the object
 	// from the player's perspective.
-	void GetRelevantCorners(const FVector& PlayerLocation, FVector& CornerLeft, FVector& CornerRight);
+	void GetRelevantCorners(const FVector2D& PlayerLocation, FVector2D& CornerLeft, FVector2D& CornerRight);
 };

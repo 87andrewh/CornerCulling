@@ -43,16 +43,17 @@ void AEnemy::SetInvisible() {
 
 // Get half of the enemy's angular width's from the player's perspective.
 // Currently implemented for boxes, but you could extend it to account for guns sticking out.
-float AEnemy::GetHalfAngularWidth(FVector& PlayerToEnemy, float Distance) {
-	PlayerToEnemy = PlayerToEnemy.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
-	float cos = PlayerToEnemy.X * CenterToCorner.X + PlayerToEnemy.Y * CenterToCorner.Y;
+float AEnemy::GetHalfAngularWidth(const FVector2D& PlayerToEnemy, const float Distance) {
+	FVector2D Normalized = PlayerToEnemy.GetSafeNormal(Utils::MIN_SAFE_LENGTH);
+	float cos = Normalized.X * CenterToCorner.X + Normalized.Y * CenterToCorner.Y;
 	// Largest cosine of angle between PlayerToEnemy and and CenterToCorner
 	// for all corners. Uses double angle identity.
 	// Corners contribute the most width when protruding out perpendicular to PlayerToEnemy.
 	float CornerMultiplier = abs(2 * cos * cos - 1);
 	float ApparentWidth = BaseWidth + CornerMultiplier * CornerExtraWidth;
-	float HalfAngularWidth = atanf(ApparentWidth / 2 / Distance);
-	return HalfAngularWidth;
+	// In a scientic setting, we would use arctangent, but identity fast, and overestimation is fine.
+	// It is even fairly accurate because ApparentWidth / (2 * Distance) is usually small.
+	return ApparentWidth / 2 / Distance;
 }
 
 // Called every frame

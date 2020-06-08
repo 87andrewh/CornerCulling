@@ -20,6 +20,10 @@ class ACornerCullingGameMode : public AGameModeBase
 protected:
 	// Use corner culling to calculate LOS between all pairs of opponents.
 	void CornerCull();
+	// Cull using angles between corners and enemies.
+	void AngleCull();
+	// Cull by calculating intersection of line segments between LOS and occluding planes.
+	void LineCull();
 	virtual void BeginPlay() override;
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
