@@ -14,7 +14,7 @@
 AEnemy::AEnemy()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(RootComponent);
@@ -31,6 +31,8 @@ void AEnemy::BeginPlay()
 
 	CenterToCorner = GetActorRotation().RotateVector(FVector(1, 1, 0));
 	CenterToCorner = CenterToCorner.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
+	N = 4;
+	Corners.resize(N);
 }
 
 void AEnemy::SetVisible() {
@@ -56,9 +58,22 @@ float AEnemy::GetHalfAngularWidth(const FVector2D& PlayerToEnemy, const float Di
 	return ApparentWidth / 2 / Distance;
 }
 
+// Set corners of the box.
+void AEnemy::SetCorners() {
+	FVector Center;
+	FVector Extents;
+	GetActorBounds(false, Center, Extents, true);
+	//FVector Extents = FVector(BaseWidth, 0, 0);
+	FRotator Rotator = GetActorRotation();
+	Corners[0] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, Extents.Y, 0)));
+	Corners[1] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, -Extents.Y, 0)));
+	Corners[2] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, Extents.Y, 0)));
+	Corners[3] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, -Extents.Y, 0)));
+}
+
 // Called every frame
 void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+	SetCorners();
 }

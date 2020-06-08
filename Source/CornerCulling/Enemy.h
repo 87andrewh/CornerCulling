@@ -5,11 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "CornerCullingCharacter.h"
-#include "CullingBox.h"
+#include "VisiblePrismInterface.h"
 #include "Enemy.generated.h"
 
 UCLASS(config=Game)
-class AEnemy : public AActor
+class AEnemy : public AActor, public VisiblePrismInterface
 {
 	GENERATED_BODY()
 
@@ -42,5 +42,7 @@ public:
 	// Note: Distance is explicit so we don't worry about normalized vectors.
 	float GetHalfAngularWidth(const FVector2D& PlayerToEnemy, const float Distance);
 
+	// Set corners of the enemy.
+	virtual void SetCorners() override;
 	virtual void Tick(float DeltaTime) override;
 };

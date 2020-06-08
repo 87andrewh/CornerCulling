@@ -65,7 +65,7 @@ void ACornerCullingGameMode::AngleCull() {
 	// Vectors from point A to B.
 	FVector2D PlayerToCornerLeft;
 	FVector2D PlayerToCornerRight;
-	FVector2D PlayerToCenter;
+	FVector2D PlayerToBoxCenter;
 	FVector2D EnemyToCornerLeft;
 	FVector2D EnemyToCornerRight;
 	FVector2D CornerLeftToCenter;
@@ -77,10 +77,10 @@ void ACornerCullingGameMode::AngleCull() {
 	// Enables accurate culling at all distances.
 	float EnemyHalfAngularWidth;
 	bool WidthInitialized;
-	// Angle between PlayerToCenter and PlayerToCornerLeft/Right
+	// Angle between PlayerToBoxCenter and PlayerToCornerLeft/Right
 	float AngleLeft;
 	float AngleRight;
-	// Angle between PlayerToCenter and PlayerToEnemy
+	// Angle between PlayerToBoxCenter and PlayerToEnemy
 	float AngleEnemy;
 	// Tracks if LOS between player and enemy is blocked.
 	bool Blocked;
@@ -113,17 +113,15 @@ void ACornerCullingGameMode::AngleCull() {
 					continue;
 				}
 				// Set pointers to the left and right corners
-				Box->GetRelevantCorners(PlayerLocation, CornerLeft, CornerRight);
+				Box->GetRelevantCorners(PlayerToEnemy, PlayerLocation, CornerLeft, CornerRight);
 				// Get vectors used to determine if the corner is between player and enemy.
 				PlayerToCornerLeft = CornerLeft - PlayerLocation;
 				PlayerToCornerRight = CornerRight - PlayerLocation;
 				EnemyToCornerLeft = CornerLeft - EnemyLocation;
 				CornerLeftToCenter = Box->Center2D - CornerLeft;
 				// Use cross products to determine if the left corner is between player and enemy.
-				Cross1Z = PlayerToCornerLeft.X * CornerLeftToCenter.Y
-						  - PlayerToCornerLeft.Y * CornerLeftToCenter.X;
-				Cross2Z = EnemyToCornerLeft.X * CornerLeftToCenter.Y
-						  - EnemyToCornerLeft.Y * CornerLeftToCenter.X;
+				Cross1Z = FVector2D::CrossProduct(PlayerToCornerLeft, CornerLeftToCenter);
+				Cross2Z = FVector2D::CrossProduct(EnemyToCornerLeft, CornerLeftToCenter);
 				// If the signs differ, then the corner sits between the player and the enemy.
 				CornerLeftBetween = (Cross1Z > 0) ^ (Cross2Z > 0);
 				// Need to check the right corner.
@@ -141,13 +139,13 @@ void ACornerCullingGameMode::AngleCull() {
 						EnemyHalfAngularWidth = Enemy->GetHalfAngularWidth(PlayerToEnemy, EnemyDistance);
 						WidthInitialized = true;
 					}
-					PlayerToCenter = FVector2D(Box->Center2D) - PlayerLocation;
-					AngleEnemy = Utils::GetAngle(PlayerToCenter, PlayerToEnemy);
-					AngleLeft = Utils::GetAngle(PlayerToCenter, PlayerToCornerLeft);
+					PlayerToBoxCenter = FVector2D(Box->Center2D) - PlayerLocation;
+					AngleEnemy = Utils::GetAngle(PlayerToBoxCenter, PlayerToEnemy);
+					AngleLeft = Utils::GetAngle(PlayerToBoxCenter, PlayerToCornerLeft);
 					PeekingLeft = (AngleLeft > AngleEnemy - EnemyHalfAngularWidth);
 					if (!PeekingLeft) {
 						// Width is not set.
-						AngleRight = Utils::GetAngle(PlayerToCenter, PlayerToCornerRight);
+						AngleRight = Utils::GetAngle(PlayerToBoxCenter, PlayerToCornerRight);
 						PeekingRight = (AngleRight < AngleEnemy + EnemyHalfAngularWidth);
 						// Enemy is peeking neither left nor right. This box blocks LOS.
 						if (!PeekingRight) {
@@ -210,7 +208,7 @@ void ACornerCullingGameMode::LineCull()
 					continue;
 				}
 				// Set pointers to the left and right corners
-				Box->GetRelevantCorners(PlayerLocation, CornerLeft, CornerRight);
+				Box->GetRelevantCorners(PlayerToEnemy, PlayerLocation, CornerLeft, CornerRight);
 				CornerRightToLeft = CornerLeft - CornerRight;
 				if (Utils::CheckSegmentsIntersect(PlayerLocation, PlayerToEnemy, CornerRight, CornerRightToLeft)) {
 					Blocked = true;

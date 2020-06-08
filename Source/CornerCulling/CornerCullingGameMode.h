@@ -28,7 +28,7 @@ protected:
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
 
-	// TODO: Code for benchmarking, not so useful in production
+	// Note: Code for benchmarking, remove from production.
 	int count;
 	float totaltime;
 
