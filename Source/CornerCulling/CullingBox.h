@@ -7,6 +7,10 @@
 #include "VisiblePrism.h"
 #include "CullingBox.generated.h"
 
+// Box that occludes vision.
+// MAP EDITORS, OVERLAP YOUR BOXES FOR FASTER FRAMES !!!
+// The more boxes block a line of sight, the more likely it is to find one quickly.
+// But don't add redundant boxes.
 UCLASS()
 class CORNERCULLING_API ACullingBox : public AActor, public VisiblePrism
 {

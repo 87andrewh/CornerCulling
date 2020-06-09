@@ -14,15 +14,16 @@ namespace Utils {
 				  	  V1.X * V2.X + V1.Y * V2.Y);
 	}
 
-	// Fast RELU approxmiation of arctangent. Not to scale.
+	// Fast RELU approxmiation of arctangent.
+	// It is safe to use when comparing angles, as both functions
+	// are monotonically increasing.
 	inline static float FastAtan(float X) {
 		if (X <= FAST_ATAN_MIN) {
 			return FAST_ATAN_MIN;
 		}
 		else if (X <= FAST_ATAN_MAX) {
 			return X;
-		}
-		else {
+		} else {
 			return FAST_ATAN_MAX;
 		}
 	}
@@ -35,18 +36,16 @@ namespace Utils {
 		// For numerical stability, immediately resolve near-right angles.
 		// NOTE: This block also catches 0 == det == dot
 		if (-MIN_SAFE_LENGTH < dot && dot < MIN_SAFE_LENGTH) {
-			// Return right angle with same sign as the determinant
-			return (1 - (2 * signbit(det))) * FAST_ATAN_MAX;
+			// Return perpendicular angle with same sign as the determinant
+			return copysign(FAST_ATAN_MAX, det);
 		}
 		float tan = det / dot;
 		if (dot > 0) {
 			return FastAtan(tan);
-		}
-		else {
+		} else {
 			if (det > 0) {
 				return FastAtan(tan) + FAST_ATAN_MAX;
-			}
-			else {
+			} else {
 				return FastAtan(tan) - FAST_ATAN_MAX;
 			}
 		}
@@ -61,17 +60,14 @@ namespace Utils {
 		FVector2D P1ToP2 = P2 - P1;
 		// Segments are parallel.
 		// Note: A little sketchy, as Cross also depends on the length of both vectors.
-		if (abs(V1CrossV2) <= Utils::MIN_SAFE_LENGTH) {
+		if ((-Utils::MIN_SAFE_LENGTH <= V1CrossV2) && (V1CrossV2 <= Utils::MIN_SAFE_LENGTH)) {
 			// Collinear is not considered intersecting.
 			return false;
 		}
-		float T1 = FVector2D::CrossProduct(P1ToP2, V2) / V1CrossV2;
-		float T2 = FVector2D::CrossProduct(P1ToP2, V1) / V1CrossV2;
-		if ((0.f <= T1) && (T1 <= 1.f) && (0.f <= T2) && (T2 <= 1.f)) {
-			return true;
-		}
-		else {
-			return false;
-		}
+		float T1 = FVector2D::CrossProduct(P1ToP2, V2);
+		float T2 = FVector2D::CrossProduct(P1ToP2, V1);
+		// Check if the lines intersect.
+		return (((V1CrossV2 > 0) && (0 < T1) && (T1 < V1CrossV2) && (0 < T2) && (T2 < V1CrossV2))
+			|| ((V1CrossV2 < T1) && (T1 < 0) && (V1CrossV2 < T2) && (T2 < 0)));
 	}
 }

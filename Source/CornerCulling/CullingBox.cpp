@@ -6,7 +6,6 @@
 #include "Utils.h"
 #include "Components/BoxComponent.h"
 
-// Sets default values
 ACullingBox::ACullingBox()
 {
 	Box = CreateDefaultSubobject<UBoxComponent>(TEXT("Box"));
@@ -16,7 +15,6 @@ ACullingBox::ACullingBox()
 	Mesh->SetupAttachment(RootComponent);
 }
 
-// Called when the game starts or when spawned
 void ACullingBox::BeginPlay()
 {
 	Super::BeginPlay();

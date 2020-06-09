@@ -44,7 +44,29 @@ class ACornerCullingGameMode : public AGameModeBase
 	// Angle between PlayerToEnemyLeft/Right and PlayerToBoxLeft/Right
 	float AngleLeft;
 	float AngleRight;
-	bool Blocked;
+	// Track if any object blocks line of sight between a player and an enemy.
+	bool Blocked = false;
+	// How many frames pass between each cull.
+	int CullingPeriod = 4;
+	// Used to calcualte short rolling average of frame times.
+	float RollingTotalTime = 0;
+	float RollingAverageTime;
+	// Number of frames in the rolling window.
+	int RollingLength = 2 * CullingPeriod;
+	// Total tick counter
+	int TotalTicks = 0;
+	// Random offset to the order in which occluding objects are iterated through.
+	// Eliminates worst case scenario where all LOS checks are blocked by the last numbered object.
+	// This converts long stretches of high frame into long stretches of short frame times.
+	int RandomOffset = 0;
+	// If the average frametime (microseconds) is above this value,
+	// permute the order in which we check occluding objects.
+	// Best to emperically tune this.
+	float RandomizationThreshold = 55;
+
+	// For benchmarking. Not necessary in production
+	int box_i = 0;
+	float TotalTime = 0;
 
 protected:
 	// Use corner culling to calculate LOS between all pairs of opponents.
@@ -56,13 +78,6 @@ protected:
 	virtual void BeginPlay() override;
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
-
-	// Enables revealing enemies slightly before they exit cover (radians).
-	float CullingThreshold = 0.001f;
-
-	// Note: Code for benchmarking, remove from production.
-	int count;
-	float totaltime;
 
 public:
 	ACornerCullingGameMode();

@@ -13,6 +13,11 @@ class AEnemy : public AActor, public VisiblePrism
 {
 	GENERATED_BODY()
 
+	// If a enemy is revealed, stay revealed for a few frame.
+	// Combats otherwise worst-case scenario of all players being visible.
+	int RevealTimer;
+	int RevealTimerMax = 23;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -35,4 +40,12 @@ public:
 	// Update center and corner locations.
 	void UpdateBounds();
 	virtual void Tick(float DeltaTime) override;
+
+	// Reveal the enemy.
+	void Reveal();
+	// Return if the enemy is almost visible.
+	// Prevents flickering by allowig us to run a visibility check at the last invisible frame.
+	bool IsAlmostVisible();
+	// Return if the enemy is visible.
+	bool IsVisible();
 };
