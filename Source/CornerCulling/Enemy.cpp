@@ -17,7 +17,6 @@ AEnemy::AEnemy()
 	PrimaryActorTick.bCanEverTick = true;
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
-	Mesh->SetupAttachment(RootComponent);
 	RootComponent = Mesh;
 	
 	VisibleMaterial = CreateDefaultSubobject<UMaterial>(TEXT("VisibleMaterial"));
@@ -29,10 +28,8 @@ void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CenterToCorner = GetActorRotation().RotateVector(FVector(1, 1, 0));
-	CenterToCorner = CenterToCorner.GetSafeNormal2D(Utils::MIN_SAFE_LENGTH);
-	N = 4;
-	Corners.resize(N);
+	InitCorners(4);
+	UpdateBounds();
 }
 
 void AEnemy::SetVisible() {
@@ -43,37 +40,24 @@ void AEnemy::SetInvisible() {
 	Mesh->SetMaterial(0, InvisibleMaterial);
 }
 
-// Get half of the enemy's angular width's from the player's perspective.
-// Currently implemented for boxes, but you could extend it to account for guns sticking out.
-float AEnemy::GetHalfAngularWidth(const FVector2D& PlayerToEnemy, const float Distance) {
-	FVector2D Normalized = PlayerToEnemy.GetSafeNormal(Utils::MIN_SAFE_LENGTH);
-	float cos = Normalized.X * CenterToCorner.X + Normalized.Y * CenterToCorner.Y;
-	// Largest cosine of angle between PlayerToEnemy and and CenterToCorner
-	// for all corners. Uses double angle identity.
-	// Corners contribute the most width when protruding out perpendicular to PlayerToEnemy.
-	float CornerMultiplier = abs(2 * cos * cos - 1);
-	float ApparentWidth = BaseWidth + CornerMultiplier * CornerExtraWidth;
-	// In a scientic setting, we would use arctangent, but identity fast, and overestimation is fine.
-	// It is even fairly accurate because ApparentWidth / (2 * Distance) is usually small.
-	return ApparentWidth / 2 / Distance;
-}
-
-// Set corners of the box.
-void AEnemy::SetCorners() {
-	FVector Center;
-	FVector Extents;
-	GetActorBounds(false, Center, Extents, true);
-	//FVector Extents = FVector(BaseWidth, 0, 0);
-	FRotator Rotator = GetActorRotation();
-	Corners[0] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, Extents.Y, 0)));
-	Corners[1] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, -Extents.Y, 0)));
-	Corners[2] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, Extents.Y, 0)));
-	Corners[3] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, -Extents.Y, 0)));
+// Update bounds of the player.
+// This implementation may appear to be code duplication of CullingBox.
+// Howerver, note that one can change the position and number of corners.
+// For example, pushing forward a corner if the player picks up a long gun.
+void AEnemy::UpdateBounds() {
+	FVector Center = GetActorLocation();
+	FVector Extents = FVector(50, 50, 50);
+	FTransform T = GetActorTransform();
+	Corners[0] = FVector2D(Center + T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
+	Corners[1] = FVector2D(Center + T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
+	Corners[2] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
+	Corners[3] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
+	ZTop = Center.Z + Extents.Z;
 }
 
 // Called every frame
 void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	SetCorners();
+	UpdateBounds();
 }

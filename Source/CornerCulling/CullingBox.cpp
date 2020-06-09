@@ -21,24 +21,19 @@ void ACullingBox::BeginPlay()
 {
 	Super::BeginPlay();
 
-	Center = GetActorLocation();
-	Center2D = FVector2D(Center);
-	//FVector CornerLocations [N];
-	//FVector ToCenter [N];
-	FVector Extents = Box->GetScaledBoxExtent();
-	TopZ = Center.Z + Extents.Z;
 	// Initialize corners.
-	N = 4;
-	Corners.resize(N);
-	SetCorners();
+	InitCorners(4);
+	UpdateBounds();
 }
 
-// Set corners of the box.
-void ACullingBox::SetCorners() {
-	FVector Extents = Box->GetScaledBoxExtent();
-	FRotator Rotator = GetActorRotation();
-	Corners[0] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, Extents.Y, 0)));
-	Corners[1] = FVector2D(Center + Rotator.RotateVector(FVector(Extents.X, -Extents.Y, 0)));
-	Corners[2] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, Extents.Y, 0)));
-	Corners[3] = FVector2D(Center + Rotator.RotateVector(FVector(-Extents.X, -Extents.Y, 0)));
+// Update center and corner locations.
+void ACullingBox::UpdateBounds() {
+	FVector Center = GetActorLocation();
+	FVector Extents = FVector(50, 50, 50);
+	FTransform T = GetActorTransform();
+	Corners[0] = FVector2D(Center + T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
+	Corners[1] = FVector2D(Center + T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
+	Corners[2] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
+	Corners[3] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
+	ZTop = Center.Z + T.GetScale3D().Z * Extents.Z;
 }
