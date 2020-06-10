@@ -28,6 +28,8 @@ class ACornerCullingGameMode : public AGameModeBase
 	// Used to calcualte short rolling average of frame times.
 	float RollingTotalTime = 0;
 	float RollingAverageTime;
+	// Max culling time in rolling window.
+	int RollingMaxTime;
 	// Number of frames in the rolling window.
 	int RollingLength = 2 * CullingPeriod;
 	// Total tick counter
@@ -40,6 +42,8 @@ class ACornerCullingGameMode : public AGameModeBase
 	std::vector<bool> IndexInCache;
 	// 50 is the number of lines of sight in a 5v5 game.
 	int MaxCacheSize = 50;
+	// Put index i in the cache, possibly evicting another member.
+	void PutInCache(int i);
 
 	// For benchmarking. Not necessary in production
 	float TotalTime = 0;

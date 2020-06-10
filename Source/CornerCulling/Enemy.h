@@ -17,8 +17,20 @@ class AEnemy : public AActor, public VisiblePrism
 
 	// If a enemy is revealed, stay revealed for a few frame.
 	// Combats otherwise worst-case scenario of all players being visible.
-	int RevealTimer;
-	int RevealTimerMax = 35;
+	int RevealTimer = 0;
+	int RevealTimerBaseMax = 20;
+	// Make RevealTimer slightly random to prevent culling time spikes,
+	// such as in case when a Viper wall goes down in a 5v5,
+	// revealing everyone on the same frame, and causing all timer refresh checks to be synchronized.
+	// Shouldn't be too small, or culling will be too clustered.
+	int RevealTimerJitter = 20;
+	// Adaptively multiply the revel timer if the enemy remains visible for a long time.
+	float RevealTimerMultiplier = 1;
+	// If the enemy is revealed, multiply the timer multiplier. Reveal time grows linearly with time
+	// spent visible, as both the growth rate of the multiplier and the time between multiplications
+	// are the same.
+	float RevealTimerMultiplierMultiplier = 1.1f;
+	float RevealTimerMultierMax = 4;
 
 	// Internal methods for setting visibility.
 	// To externally reveal an enemy, call Reveal().

@@ -46,6 +46,18 @@ void ACornerCullingGameMode::BeginPlay() {
 	TotalTime = 0;
 }
 
+// Put index i in the cache, possibly evicting another member.
+// Currently, FIFO seems to be good enough, but I think you could get perormance
+// with a CLOCK, RANDOM, or LRU.
+void ACornerCullingGameMode::PutInCache(int i) {
+	BoxIndexCache.push_front(i);
+	IndexInCache[i] = true;
+	if (BoxIndexCache.size() > MaxCacheSize) {
+		IndexInCache[BoxIndexCache.back()] = false;
+		BoxIndexCache.pop_back();
+	}
+}
+
 void ACornerCullingGameMode::MarkFVector(const FVector2D& V) {
 	FVector start = FVector(V.X, V.Y, 200);
 	FVector end = start + FVector(0, 0, 200);
@@ -132,10 +144,12 @@ void ACornerCullingGameMode::Cull() {
 		for (AEnemy* Enemy : Enemies)
 		{
 			// If the enemy is almost out of linger visibility, we check LOS
-			// to prevent flickering.
-			// Otherwise, if the enemy still has lingering visibililty,
+			// to prevent flickering. Otherwise, if the enemy still has lingering visibililty,
 			// or this current tick is not scheduled to cull, then we can skip this enemy.
+			// There is a weird interaction if enemy visibility period and culling period are correlated,
+			// but enemy visibility should be random enough to avoid that.
 			if (!(Enemy->IsAlmostVisible()) && (Enemy->IsVisible() || ((TotalTicks % CullingPeriod) != 0))) {
+				// Skip culling this enemy;
 				continue;
 			}
 			// Call PVS culling between player and enemy. Could be a big speedup.
@@ -151,6 +165,7 @@ void ACornerCullingGameMode::Cull() {
 			PlayerLeft = PlayerCenter - PlayerPerpendicularDisplacement;
 			PlayerRight = PlayerCenter + PlayerPerpendicularDisplacement;
 
+			// Check cache first.
 			for (int i : BoxIndexCache) {
 				ACullingBox* Box = Boxes[i];
 				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
@@ -159,19 +174,17 @@ void ACornerCullingGameMode::Cull() {
 					goto DONE;
 				}
 			}
-
+			// Check everything else.
 			for (int i = 0; i < NumBoxes; i++) {
+				// Current i was in cache. Skip.
 				if (IndexInCache[i]) continue;
 				ACullingBox* Box = Boxes[i];
+				// Call PVS culling between player and box. Could be a big speedup.
+				// if (!IsPotentiallyVisible(Box)) continue;
 				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
 						       PlayerCenter3D.Z, EnemyCenter3D.Z, Box))
-				{
-					BoxIndexCache.push_front(i);
-					IndexInCache[i] = true;
-					if (BoxIndexCache.size() > MaxCacheSize) {
-						IndexInCache[BoxIndexCache.back()] = false;
-						BoxIndexCache.pop_back();
-					}
+				{	
+					PutInCache(i);
 					goto DONE;
 				}
 			}
@@ -192,15 +205,21 @@ void ACornerCullingGameMode::BenchmarkCull() {
 	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
 	TotalTime += Delta;
 	RollingTotalTime += Delta;
+	RollingMaxTime = std::max(RollingMaxTime, Delta);
 	if ((TotalTicks % RollingLength) == 0) {
 		RollingAverageTime = RollingTotalTime / RollingLength;
 		RollingTotalTime = 0;
+		RollingMaxTime = 0;
 	}
 	if (GEngine && (TotalTicks % 30 == 0)) {
+		// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
+		// Make sure that multiple servers are staggered so these spikes do not add up.
 		FString Msg = "Average time to cull (microseconds): " + FString::SanitizeFloat(TotalTime / TotalTicks);
-		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		GEngine->AddOnScreenDebugMessage(1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 		Msg = "Rolling average time to cull (microseconds): " + FString::SanitizeFloat(RollingAverageTime);
-		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		GEngine->AddOnScreenDebugMessage(2, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
+		GEngine->AddOnScreenDebugMessage(3, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 	}
 }
 

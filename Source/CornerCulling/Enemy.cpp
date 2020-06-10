@@ -9,6 +9,7 @@
 #include "EngineUtils.h"
 #include "Utils.h"
 #include <stdlib.h> 
+#include <algorithm>    // std::min
 
 // Sets default values
 AEnemy::AEnemy()
@@ -31,7 +32,8 @@ void AEnemy::BeginPlay()
 
 	InitCorners(4);
 	UpdateBounds();
-	RevealTimer = RevealTimerMax;
+	SetInvisible();
+	RevealTimer = 0;
 }
 
 void AEnemy::SetVisible() {
@@ -65,11 +67,13 @@ void AEnemy::UpdateBounds() {
 // Reveal the enemy, maxing its reveal timer
 void AEnemy::Reveal() {
 	SetVisible();
-	RevealTimer = RevealTimerMax;
+	RevealTimerMultiplier *= RevealTimerMultiplierMultiplier;
+	RevealTimer = std::min(RevealTimerMultiplier, RevealTimerMultierMax) * RevealTimerBaseMax + (rand() % RevealTimerJitter);
 }
 
 void AEnemy::Hide() {
 	SetInvisible();
+	RevealTimerMultiplier = 1;
 	RevealTimer = 0;
 }
 

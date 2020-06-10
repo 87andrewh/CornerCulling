@@ -97,29 +97,14 @@ void ACornerCullingCharacter::SetupPlayerInputComponent(class UInputComponent* P
 
 void ACornerCullingCharacter::OnFire()
 {
-	// try and fire a projectile
-	if (ProjectileClass != NULL)
+	// Fire a line trace.
+	UWorld* const World = GetWorld();
+	if (World != NULL)
 	{
-		UWorld* const World = GetWorld();
-		if (World != NULL)
-		{
-			const FRotator SpawnRotation = GetControlRotation();
-			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-			const FVector SpawnLocation = ((FP_MuzzleLocation != nullptr) ? FP_MuzzleLocation->GetComponentLocation() : GetActorLocation()) + SpawnRotation.RotateVector(GunOffset);
-
-			//Set Spawn Collision Handling Override
-			FActorSpawnParameters ActorSpawnParams;
-			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-
-			// spawn the projectile at the muzzle
-			World->SpawnActor<ACornerCullingProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
-		}
-	}
-
-	// try and play the sound if specified
-	if (FireSound != NULL)
-	{
-		//UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
+		FVector Start = FirstPersonCameraComponent->GetComponentLocation() + FVector(0, 0, -10);
+		FVector Forward = FirstPersonCameraComponent->GetForwardVector();
+		FVector End = Start + 2000.f * Forward;
+		DrawDebugLine(GetWorld(), Start, End, FColor::Turquoise, false, 1, 0, 1.f);
 	}
 
 	// try and play a firing animation if specified
@@ -184,6 +169,6 @@ void ACornerCullingCharacter::GetPerpendicularDisplacement(const FVector2D& Play
 		Displacement = FVector2D::ZeroVector;
 	}
 	// I said ideally.
-	float Magnitude = 10;
+	float Magnitude = 15;
 	Displacement = FVector2D(-PlayerToEnemy.Y, PlayerToEnemy.X) * (Magnitude / Distance);
 }
