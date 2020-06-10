@@ -8,6 +8,7 @@
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
+#include "Utils.h"
 #include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
@@ -172,4 +173,17 @@ void ACornerCullingCharacter::Tick(float DeltaTime)
 FVector ACornerCullingCharacter::GetCameraLocation()
 {
 	return GetFirstPersonCameraComponent()->GetComponentLocation();
+}
+
+// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
+// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
+// plyaer maximum speed, player maximum velocity, and location-modifying game events.
+void ACornerCullingCharacter::GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& Displacement) {
+	float Distance = PlayerToEnemy.Size();
+	if (abs(Distance) < Utils::MIN_SAFE_LENGTH) {
+		Displacement = FVector2D::ZeroVector;
+	}
+	// I said ideally.
+	float Magnitude = 20;
+	Displacement = FVector2D(-PlayerToEnemy.Y, PlayerToEnemy.X) * (Magnitude / Distance);
 }

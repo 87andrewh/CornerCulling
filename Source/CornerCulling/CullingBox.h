@@ -27,9 +27,10 @@ public:
 	UPROPERTY(VisibleDefaultsOnly)
 	class UStaticMeshComponent* Mesh;
 
+	// Update the bounds of this box (center, corners, height)
+	void UpdateBounds();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	// Update center and corner locations.
-	void UpdateBounds();
 };

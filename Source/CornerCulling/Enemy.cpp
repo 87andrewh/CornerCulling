@@ -48,10 +48,7 @@ void AEnemy::SetInvisible() {
 // For example, pushing forward a corner if the player picks up a long gun.
 void AEnemy::UpdateBounds() {
 	FVector Center = GetActorLocation();
-	// Actual extents are (50, 50, 50).
-	// Padding allows us to trade unnecessary pixel-perfect accuracy
-	// for the blistering speed of culling every other frame.
-	FVector Extents = FVector(54, 54, 54);
+	FVector Extents = FVector(50, 50, 50);
 	FTransform T = GetActorTransform();
 	Corners[0] = FVector2D(Center + T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
 	Corners[1] = FVector2D(Center + T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
@@ -64,6 +61,11 @@ void AEnemy::UpdateBounds() {
 void AEnemy::Reveal() {
 	SetVisible();
 	RevealTimer = RevealTimerMax;
+}
+
+void AEnemy::Hide() {
+	SetInvisible();
+	RevealTimer = 0;
 }
 
 // Return if the enemy is almost visible.
@@ -84,7 +86,7 @@ void AEnemy::Tick(float DeltaTime)
 	UpdateBounds();
 	if (IsVisible()) {
 		if (--RevealTimer == 0) {
-			SetInvisible();
+			Hide();
 		}
 	}
 }

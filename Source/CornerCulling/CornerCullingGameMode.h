@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "CornerCullingCharacter.h"
 #include "Enemy.h"
 #include "CullingBox.h"
 #include "VisiblePrism.h"
@@ -15,35 +16,36 @@ class ACornerCullingGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 	friend VisiblePrism;
+	friend ACornerCullingCharacter;
 
 	TArray<ACornerCullingCharacter*> Players;
 	TArray<AEnemy*> Enemies;
 	TArray<ACullingBox*> Boxes;
-
-	FVector PlayerLocation3D;
-	FVector2D PlayerLocation;
+	FVector PlayerCenter3D;
+	FVector2D PlayerCenter;
 	FVector EnemyCenter3D;
 	FVector2D EnemyCenter;
+	FVector2D PlayerToEnemy;
+	// Left and rightmost corners of the enemy bouding prism, from the player's perspective.
 	FVector2D EnemyLeft = FVector2D();
 	FVector2D EnemyRight = FVector2D();
-	FVector2D PlayerToEnemy;
-	FVector2D PlayerToEnemyLeft;
-	FVector2D PlayerToEnemyRight;
+	// Left and rightmost positons that the player could be along an axis perpendicular to PlayerToEnemy
+	// in the time between culling events, defined by PlayerPerpendicularDisplacement.
+	FVector2D PlayerLeft;
+	FVector2D PlayerRight;
+	FVector2D PlayerPerpendicularDisplacement = FVector2D();
+	FVector2D PlayerLeftToEnemyLeft;
+	FVector2D PlayerRightToEnemyRight;
+	FVector2D BoxCenter;
+	// Left and rightmost corners of the occluding object, from the player's perspective.
 	FVector2D BoxLeft = FVector2D();
 	FVector2D BoxRight = FVector2D();
-	FVector2D BoxCenter;
 	FVector2D BoxRightToBoxLeft;
 	FVector2D PlayerToBox;
-	FVector2D PlayerToBoxLeft;
-	FVector2D PlayerToBoxRight;
+	FVector2D PlayerLeftToBoxLeft;
+	FVector2D PlayerRightToBoxRight;
 	FVector2D EnemyLeftToBoxLeft;
 	FVector2D EnemyRightToBoxRight;
-	// Used to store results of various cross products.
-	float Cross1Z;
-	float Cross2Z;
-	// Angle between PlayerToEnemyLeft/Right and PlayerToBoxLeft/Right
-	float AngleLeft;
-	float AngleRight;
 	// Track if any object blocks line of sight between a player and an enemy.
 	bool Blocked = false;
 	// How many frames pass between each cull.
@@ -69,15 +71,13 @@ class ACornerCullingGameMode : public AGameModeBase
 	float TotalTime = 0;
 
 protected:
-	// Use corner culling to calculate LOS between all pairs of opponents.
-	void CornerCull();
-	// Cull using angles between corners and enemies.
-	void AngleCull();
-	// Cull by calculating intersection of line segments between LOS and occluding planes.
-	void LineCull();
 	virtual void BeginPlay() override;
 	// Reveal the Enemy to the Player.
 	static void Reveal(ACornerCullingCharacter* Player, AEnemy* Enemy);
+	// Cull with desired algorithm. Default is angle mode, but enable line segment mode with:
+	#define LINE_SEGMENT_MODE
+	void Cull();
+	void BenchmarkCull();
 
 public:
 	ACornerCullingGameMode();

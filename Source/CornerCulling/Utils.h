@@ -27,6 +27,10 @@ namespace Utils {
 			return FAST_ATAN_MAX;
 		}
 	}
+	
+	inline static bool CrossProductPositive(const FVector2D& V1, const FVector2D& V2) {
+		return (V1.X * V2.Y - V1.Y * V2.X) > 0.f;
+	}
 
 	// Approximate the yaw angle between two FVectors. Angle order remains the same.
 	inline static float GetAngleFast(const FVector2D& V1, const FVector2D& V2) {
@@ -70,4 +74,5 @@ namespace Utils {
 		return (((V1CrossV2 > 0) && (0 < T1) && (T1 < V1CrossV2) && (0 < T2) && (T2 < V1CrossV2))
 			|| ((V1CrossV2 < T1) && (T1 < 0) && (V1CrossV2 < T2) && (T2 < 0)));
 	}
+
 }

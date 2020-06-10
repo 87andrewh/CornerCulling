@@ -62,7 +62,7 @@ public:
 	FVector GunOffset;
 
 	/** Projectile class to spawn */
-	UPROPERTY(EditDefaultsOnly, Category=Projectile)
+	UPROPERTY(EditAnywhere, Category=Projectile)
 	TSubclassOf<class ACornerCullingProjectile> ProjectileClass;
 
 	/** Sound to play each time we fire */
@@ -110,4 +110,9 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 	FVector GetCameraLocation();
+
+	// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
+	// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
+	// plyaer maximum speed, player maximum velocity, and location-modifying game events.
+	void GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& PerpendicularPlayerDisplacement);
 };
