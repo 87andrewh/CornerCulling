@@ -131,9 +131,6 @@ void ACornerCullingGameMode::Cull() {
 		FVector2D PlayerCenter = FVector2D(PlayerCenter3D);
 		for (AEnemy* Enemy : Enemies)
 		{
-			// Store of LOS between the Player and Enemy is blocked.
-			bool Blocked = false;
-
 			// If the enemy is almost out of linger visibility, we check LOS
 			// to prevent flickering.
 			// Otherwise, if the enemy still has lingering visibililty,
@@ -144,7 +141,7 @@ void ACornerCullingGameMode::Cull() {
 			// Call PVS culling between player and enemy. Could be a big speedup.
 			// if (!IsPotentiallyVisible(Enemy)) continue;
 
-			FVector EnemyCenter3D = Enemy->GetActorLocation();
+			FVector EnemyCenter3D = Enemy->GetCenter();
 			FVector2D EnemyCenter = FVector2D(EnemyCenter3D);
 			FVector2D EnemyLeft, EnemyRight;
 			Enemy->GetRelevantCorners(PlayerCenter, EnemyLeft, EnemyRight);
@@ -159,7 +156,6 @@ void ACornerCullingGameMode::Cull() {
 				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
 						       PlayerCenter3D.Z, EnemyCenter3D.Z, Box))
 				{
-					Blocked = true;
 					goto DONE;
 				}
 			}
@@ -170,7 +166,6 @@ void ACornerCullingGameMode::Cull() {
 				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
 						       PlayerCenter3D.Z, EnemyCenter3D.Z, Box))
 				{
-					Blocked = true;
 					BoxIndexCache.push_front(i);
 					IndexInCache[i] = true;
 					if (BoxIndexCache.size() > MaxCacheSize) {
@@ -180,7 +175,8 @@ void ACornerCullingGameMode::Cull() {
 					goto DONE;
 				}
 			}
-			if (!Blocked) { Reveal(Player, Enemy); }
+			// No occluding object blocked LOS.
+			Reveal(Player, Enemy);
 			DONE:;
 		}
 	}
@@ -190,16 +186,16 @@ void ACornerCullingGameMode::BenchmarkCull() {
 	auto Start = std::chrono::high_resolution_clock::now();
 	TotalTicks++;
 	Cull();
-	if ((TotalTicks % RollingLength) == 0) {
-		RollingAverageTime = RollingTotalTime / RollingLength;
-		RollingTotalTime = 0;
-	}
 	// This just simulates the cost of updating character bounds in a 5v5 game.
 	for (int i = 0; i < 10; i++) { Enemies[0]->UpdateBounds(); }
 	auto Stop = std::chrono::high_resolution_clock::now();
 	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
-	RollingTotalTime += Delta;
 	TotalTime += Delta;
+	RollingTotalTime += Delta;
+	if ((TotalTicks % RollingLength) == 0) {
+		RollingAverageTime = RollingTotalTime / RollingLength;
+		RollingTotalTime = 0;
+	}
 	if (GEngine && (TotalTicks % 30 == 0)) {
 		FString Msg = "Average time to cull (microseconds): " + FString::SanitizeFloat(TotalTime / TotalTicks);
 		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));

@@ -18,7 +18,7 @@ class AEnemy : public AActor, public VisiblePrism
 	// If a enemy is revealed, stay revealed for a few frame.
 	// Combats otherwise worst-case scenario of all players being visible.
 	int RevealTimer;
-	int RevealTimerMax = 30;
+	int RevealTimerMax = 35;
 
 	// Internal methods for setting visibility.
 	// To externally reveal an enemy, call Reveal().
