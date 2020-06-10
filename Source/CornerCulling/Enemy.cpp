@@ -42,19 +42,24 @@ void AEnemy::SetInvisible() {
 	Mesh->SetMaterial(0, InvisibleMaterial);
 }
 
+FVector AEnemy::GetCenter() {
+	return GetActorLocation();
+}
+
 // Update bounds of the player.
 // This implementation may appear to be code duplication of CullingBox.
 // Howerver, note that one can change the position and number of corners.
 // For example, pushing forward a corner if the player picks up a long gun.
 void AEnemy::UpdateBounds() {
-	FVector Center = GetActorLocation();
+	FVector Center3D = GetActorLocation();
+	Center = FVector2D(GetActorLocation());
 	FVector Extents = FVector(50, 50, 50);
 	FTransform T = GetActorTransform();
-	Corners[0] = FVector2D(Center + T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
-	Corners[1] = FVector2D(Center + T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
-	Corners[2] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
-	Corners[3] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
-	ZTop = Center.Z + Extents.Z;
+	Corners[0] = Center + FVector2D( T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
+	Corners[1] = Center + FVector2D( T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
+	Corners[2] = Center + FVector2D( T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
+	Corners[3] = Center + FVector2D( T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
+	ZTop = Center3D.Z + T.GetScale3D().Z * Extents.Z;
 }
 
 // Reveal the enemy, maxing its reveal timer
@@ -90,3 +95,4 @@ void AEnemy::Tick(float DeltaTime)
 		}
 	}
 }
+

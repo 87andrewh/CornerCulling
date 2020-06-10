@@ -29,6 +29,7 @@ public:
 
 	// Update the bounds of this box (center, corners, height)
 	void UpdateBounds();
+	virtual FVector GetCenter() override;
 
 protected:
 	// Called when the game starts or when spawned

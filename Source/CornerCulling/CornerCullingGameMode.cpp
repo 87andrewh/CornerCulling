@@ -39,10 +39,21 @@ void ACornerCullingGameMode::BeginPlay() {
     }
     for (ACullingBox* Box : TActorRange<ACullingBox>(GetWorld()))
     {
-          Boxes.Add(Box);
+		Boxes.Add(Box);
+		IndexInCache.push_back(false);
     }
 	TotalTicks = 0;
 	TotalTime = 0;
+}
+
+void ACornerCullingGameMode::MarkFVector(const FVector2D& V) {
+	FVector start = FVector(V.X, V.Y, 200);
+	FVector end = start + FVector(0, 0, 200);
+	DrawDebugLine(GetWorld(), start, end, FColor::Emerald, false, 0.3f, 0, 0.2f);
+}
+
+void ACornerCullingGameMode::ConnectVectors(const FVector2D& V1, const FVector2D& V2) {
+	DrawDebugLine(GetWorld(), FVector(V1.X, V1.Y, 260), FVector(V2.X, V2.Y, 260), FColor::Emerald, false, 0.3f, 0, 0.2f);
 }
 
 // Reveal the enemy to the player.
@@ -51,127 +62,148 @@ void ACornerCullingGameMode::Reveal(ACornerCullingCharacter* Player, AEnemy* Ene
 	Enemy->Reveal();
 }
 
+// Check if the VisiblePrism is blocking line of sight
+// between both P1LeftToP2Left and P1RightToP2Right.
+bool ACornerCullingGameMode::IsBlocking(
+	const FVector2D& P1Left,
+	const FVector2D& P1Right,
+	const FVector2D& P2Left,
+	const FVector2D& P2Right,
+	const float P1Z,
+	const float P2Z,
+	VisiblePrism* Prism)
+{
+	if ((P1Z > Prism->ZTop) || (P2Z > Prism->ZTop)) {
+		return false;
+	}
+	FVector2D P3, P4;
+	Prism->GetRelevantCorners(P1Left, P3, P4);
+	if (IsBlocking(P1Left, P2Left, P3, P4)) {
+		Prism->GetRelevantCorners(P1Right, P3, P4);
+		return IsBlocking(P1Right, P2Right, P3, P4);
+	}
+	return false;
+}
+  
+// Check if line segment between points P3 and P4 blocks line of sight between P1 and P2.
+// P3 is on the left of P4.
+bool ACornerCullingGameMode::IsBlocking(
+	const FVector2D& P1,
+	const FVector2D& P2,
+	const FVector2D& P3,
+	const FVector2D& P4)
+{
+	#if defined ( LINE_SEGMENT_MODE )
+		// Define line segments between PlayerLeft and EnemyLeft and between the two
+		// relevant corners of an occluding object. Cull if those segments intersect.
+		return Utils::CheckSegmentsIntersect(P1, P2, P3, P4);
+	#else
+		FVector2D P1ToP3 = P3 - P1;
+		FVector2D P2ToP3 = P3 - P2;
+		FVector2D P4ToP3 = P3 - P4;
+		// Use sign of cross products to determine if P1 and P2 are on opposite sides of P3ToP4
+		if (Utils::CrossProductPositive(P1ToP3, P4ToP3)
+			== Utils::CrossProductPositive(P2ToP3, P4ToP3)) 
+		{
+			// Same signs, same side. Not blocking.
+			return false;
+		}
+		FVector2D P1ToP2 = P2 - P1;
+		FVector2D P1ToP4 = P4 - P1;
+		// Use the sign of cross products to determine if P1ToP2 is between P1ToP3 and P1ToP4
+		if (Utils::CrossProductPositive(P1ToP2, P1ToP3)
+			|| !Utils::CrossProductPositive(P1ToP2, P1ToP4))
+		{
+			// P1ToP2 is either to the left of P1ToP3 or the right of P1ToP4
+			return false;
+		}
+			return true;
+	#endif
+}
+
 // Function for accurately and quickly computing LOS between all pairs of opponents.
 // Can be sped up by building on top of PVS checks, or parallelizing checks.
 void ACornerCullingGameMode::Cull() {
 	int NumBoxes = Boxes.Num();
 	for (ACornerCullingCharacter* Player : Players)
 	{
-		PlayerCenter3D = Player->GetCameraLocation();
-		PlayerCenter = FVector2D(PlayerCenter3D);
+		FVector PlayerCenter3D = Player->GetCameraLocation();
+		FVector2D PlayerCenter = FVector2D(PlayerCenter3D);
 		for (AEnemy* Enemy : Enemies)
 		{
+			// Store of LOS between the Player and Enemy is blocked.
+			bool Blocked = false;
+
+			// If the enemy is almost out of linger visibility, we check LOS
+			// to prevent flickering.
+			// Otherwise, if the enemy still has lingering visibililty,
+			// or this current tick is not scheduled to cull, then we can skip this enemy.
 			if (!(Enemy->IsAlmostVisible()) && (Enemy->IsVisible() || ((TotalTicks % CullingPeriod) != 0))) {
 				continue;
 			}
-			Blocked = false;
-			// Call PVS culling between player and enemy. Should be a big speedup.
+			// Call PVS culling between player and enemy. Could be a big speedup.
 			// if (!IsPotentiallyVisible(Enemy)) continue;
-			EnemyCenter3D = Enemy->GetActorLocation();
-			EnemyCenter = FVector2D(EnemyCenter3D);
-			Enemy->GetRelevantCorners(PlayerCenter, EnemyCenter, EnemyLeft, EnemyRight);
-			PlayerToEnemy = EnemyCenter - PlayerCenter;
+
+			FVector EnemyCenter3D = Enemy->GetActorLocation();
+			FVector2D EnemyCenter = FVector2D(EnemyCenter3D);
+			FVector2D EnemyLeft, EnemyRight;
+			Enemy->GetRelevantCorners(PlayerCenter, EnemyLeft, EnemyRight);
+			FVector2D PlayerToEnemy = EnemyCenter - PlayerCenter;
+			FVector2D PlayerLeft, PlayerRight, PlayerPerpendicularDisplacement;
 			Player->GetPerpendicularDisplacement(PlayerToEnemy, PlayerPerpendicularDisplacement);
 			PlayerLeft = PlayerCenter - PlayerPerpendicularDisplacement;
 			PlayerRight = PlayerCenter + PlayerPerpendicularDisplacement;
-			PlayerLeftToEnemyLeft = EnemyLeft - PlayerLeft;
-			PlayerRightToEnemyRight = EnemyRight - PlayerRight;
 
-			// NOTE: Could precompute relevant boxes with PVS
-			for (box_i = 0; box_i < NumBoxes; box_i++) {
-				ACullingBox* Box = Boxes[(box_i + RandomOffset) % NumBoxes];
-				// Rough solution for considering Z axis.
-				if ((PlayerCenter3D.Z > Box->ZTop) || (EnemyCenter3D.Z > Box->ZTop)) {
-					continue;
+			for (int i : BoxIndexCache) {
+				ACullingBox* Box = Boxes[i];
+				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
+						       PlayerCenter3D.Z, EnemyCenter3D.Z, Box))
+				{
+					Blocked = true;
+					goto DONE;
 				}
-				// Get vectors used to determine if the corner is between player and enemy.
-				BoxCenter = FVector2D(Box->GetActorLocation());
-
-				#if defined ( LINE_SEGMENT_MODE )
-					// Define line segments between PlayerLeft and EnemyLeft and between the two relevant corners of an occluding object.
-					// Cull if those segments intersect.
-					Box->GetRelevantCorners(PlayerLeft, BoxCenter, BoxLeft, BoxRight);
-					BoxRightToBoxLeft = BoxLeft - BoxRight;
-					FVector start;
-					FVector end;
-					start = PlayerCenter3D + FVector(0, 0, -10);
-					//DrawDebugLine(GetWorld(), start, end. FColor::Red, false, 0.3f, 0, 0.2f);
-					if (!Utils::CheckSegmentsIntersect(PlayerLeft, PlayerLeftToEnemyLeft, BoxRight, BoxRightToBoxLeft)) {
-						continue;
-					}
-					Box->GetRelevantCorners(PlayerRight, BoxCenter, BoxLeft, BoxRight);
-					BoxRightToBoxLeft = BoxLeft - BoxRight;
-					if (!Utils::CheckSegmentsIntersect(PlayerRight, PlayerRightToEnemyRight, BoxRight, BoxRightToBoxLeft))
-					{
-						continue;
-					}
-					Blocked = true;
-					break;
-				#else
-					PlayerLeftToBoxLeft = BoxLeft - PlayerLeft;
-					EnemyLeftToBoxLeft = BoxLeft - EnemyLeft;
-					// Use cross products to determine if player and enemy are on opposite sides of the box.
-					// If signs are the same, player and enemy are on the same side of the wall.
-					if (Utils::CrossProductPositive(PlayerLeftToBoxLeft, BoxRightToBoxLeft)
-						== Utils::CrossProductPositive(EnemyLeftToBoxLeft, BoxRightToBoxLeft)) 
-					{
-						continue;
-					}
-
-					PlayerRightToBoxRight = BoxRight - PlayerCenter;
-					EnemyRightToBoxRight = BoxRight - EnemyRight;
-					// Calculate the sign of the cross product between PlayerToEnemyRight and PlayerToBoxRight
-					// to determine if the right of the enemy peeks out from the right of the box. Same for the left.
-					// If the signs confuse you, fellow math nerd, it's because UE4 uses left-handed coordinates
-					// due to historical reasons.
-					if (Utils::CrossProductPositive(PlayerLeftToEnemyLeft, PlayerLeftToBoxLeft)
-						|| !Utils::CrossProductPositive(PlayerRightToEnemyRight, PlayerRightToBoxRight))
-					{
-						continue;
-					}
-					Blocked = true;
-					break;
-				#endif
 			}
-			if (!Blocked) {
-				Reveal(Player, Enemy);
+
+			for (int i = 0; i < NumBoxes; i++) {
+				if (IndexInCache[i]) continue;
+				ACullingBox* Box = Boxes[i];
+				if (IsBlocking(PlayerLeft, PlayerRight, EnemyLeft, EnemyRight,
+						       PlayerCenter3D.Z, EnemyCenter3D.Z, Box))
+				{
+					Blocked = true;
+					BoxIndexCache.push_front(i);
+					IndexInCache[i] = true;
+					if (BoxIndexCache.size() > MaxCacheSize) {
+						IndexInCache[BoxIndexCache.back()] = false;
+						BoxIndexCache.pop_back();
+					}
+					goto DONE;
+				}
 			}
+			if (!Blocked) { Reveal(Player, Enemy); }
+			DONE:;
 		}
 	}
 }
 
 void ACornerCullingGameMode::BenchmarkCull() {
-	TotalTicks++;
 	auto Start = std::chrono::high_resolution_clock::now();
+	TotalTicks++;
 	Cull();
-	auto Stop = std::chrono::high_resolution_clock::now();
-	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
-	RollingTotalTime += Delta;
-
 	if ((TotalTicks % RollingLength) == 0) {
 		RollingAverageTime = RollingTotalTime / RollingLength;
-		// If we are having bad frame times, permute the order in which we iterate through occluding objects.
-		// This optimization might end up being unnecessary in a deployed setting using PVS.
-		// The logical extension of this idea is to iterate through occluding objects
-		// in the order that they were most recently used.
-		if (RollingAverageTime > RandomizationThreshold) {
-			RandomOffset = rand() % Boxes.Num();
-		}
 		RollingTotalTime = 0;
 	}
 	// This just simulates the cost of updating character bounds in a 5v5 game.
 	for (int i = 0; i < 10; i++) { Enemies[0]->UpdateBounds(); }
-	// There are two deltas because the first one is part of the algorithm,
-	// and the second one benchmakrs the entire algorithm.
-	Stop = std::chrono::high_resolution_clock::now();
-	Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
+	auto Stop = std::chrono::high_resolution_clock::now();
+	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
+	RollingTotalTime += Delta;
 	TotalTime += Delta;
 	if (GEngine && (TotalTicks % 30 == 0)) {
 		FString Msg = "Average time to cull (microseconds): " + FString::SanitizeFloat(TotalTime / TotalTicks);
 		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 		Msg = "Rolling average time to cull (microseconds): " + FString::SanitizeFloat(RollingAverageTime);
-		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		Msg = "Breaking at box: " + FString::FromInt(box_i);
 		GEngine->AddOnScreenDebugMessage(-1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 	}
 }

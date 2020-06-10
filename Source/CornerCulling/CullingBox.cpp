@@ -24,14 +24,19 @@ void ACullingBox::BeginPlay()
 	UpdateBounds();
 }
 
+FVector ACullingBox::GetCenter() {
+	return GetActorLocation();
+}
+
 // Update center and corner locations.
 void ACullingBox::UpdateBounds() {
-	FVector Center = GetActorLocation();
+	FVector Center3D = GetActorLocation();
+	Center = FVector2D(GetActorLocation());
 	FVector Extents = FVector(50, 50, 50);
 	FTransform T = GetActorTransform();
-	Corners[0] = FVector2D(Center + T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
-	Corners[1] = FVector2D(Center + T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
-	Corners[2] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
-	Corners[3] = FVector2D(Center + T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
-	ZTop = Center.Z + T.GetScale3D().Z * Extents.Z;
+	Corners[0] = Center + FVector2D( T.TransformVector(FVector(Extents.X, Extents.Y, 0)));
+	Corners[1] = Center + FVector2D( T.TransformVector(FVector(Extents.X, -Extents.Y, 0)));
+	Corners[2] = Center + FVector2D( T.TransformVector(FVector(-Extents.X, Extents.Y, 0)));
+	Corners[3] = Center + FVector2D( T.TransformVector(FVector(-Extents.X, -Extents.Y, 0)));
+	ZTop = Center3D.Z + T.GetScale3D().Z * Extents.Z;
 }

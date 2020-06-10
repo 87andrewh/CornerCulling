@@ -1,4 +1,6 @@
 #include "Math/Vector.h"
+#include "DrawDebugHelpers.h"
+#include <iostream>
 
 namespace Utils {
 	// Smallest float that is safe to divide by.
@@ -55,21 +57,27 @@ namespace Utils {
 		}
 	}
 	
-	// Check if two line segments defined by (P1, P1 + V1) and (P2, P2 + V2) intersect.
+	// Check if two line segments defined by (P1, P2) and (P3, P4) intersect.
 	// Derivation from Gareth Rees at: 
 	// stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-	inline static bool CheckSegmentsIntersect(const FVector2D& P1, const FVector2D& V1,
-											  const FVector2D& P2, const FVector2D& V2) {
+	inline static bool CheckSegmentsIntersect(
+		const FVector2D& P1,
+		const FVector2D& P2,
+	    const FVector2D& P3, 
+		const FVector2D& P4) 
+	{
+		const FVector2D V1 = P2 - P1;
+		const FVector2D V2 = P3 - P4;
 		float V1CrossV2 = FVector2D::CrossProduct(V1, V2);
-		FVector2D P1ToP2 = P2 - P1;
+		FVector2D P1ToP4 = P4 - P1;
 		// Segments are parallel.
 		// Note: A little sketchy, as Cross also depends on the length of both vectors.
-		if ((-Utils::MIN_SAFE_LENGTH <= V1CrossV2) && (V1CrossV2 <= Utils::MIN_SAFE_LENGTH)) {
+		if (abs(V1CrossV2) <= Utils::MIN_SAFE_LENGTH) {
 			// Collinear is not considered intersecting.
 			return false;
 		}
-		float T1 = FVector2D::CrossProduct(P1ToP2, V2);
-		float T2 = FVector2D::CrossProduct(P1ToP2, V1);
+		float T1 = FVector2D::CrossProduct(P1ToP4, V2);
+		float T2 = FVector2D::CrossProduct(P1ToP4, V1);
 		// Check if the lines intersect.
 		return (((V1CrossV2 > 0) && (0 < T1) && (T1 < V1CrossV2) && (0 < T2) && (T2 < V1CrossV2))
 			|| ((V1CrossV2 < T1) && (T1 < 0) && (V1CrossV2 < T2) && (T2 < 0)));
