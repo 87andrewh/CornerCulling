@@ -31,7 +31,7 @@ class ACornerCullingGameMode : public AGameModeBase
 	// Max culling time in rolling window.
 	int RollingMaxTime;
 	// Number of frames in the rolling window.
-	int RollingLength = 2 * CullingPeriod;
+	int RollingLength = 4 * CullingPeriod;
 	// Total tick counter
 	int TotalTicks = 0;
 

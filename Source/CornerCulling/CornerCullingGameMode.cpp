@@ -211,12 +211,12 @@ void ACornerCullingGameMode::BenchmarkCull() {
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
 	}
-	if (GEngine && (TotalTicks % 30 == 0)) {
+	if (GEngine && (TotalTicks - 1) % RollingLength == 0) {
 		// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
 		// Make sure that multiple servers are staggered so these spikes do not add up.
-		FString Msg = "Average time to cull (microseconds): " + FString::SanitizeFloat(TotalTime / TotalTicks);
+		FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
 		GEngine->AddOnScreenDebugMessage(1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		Msg = "Rolling average time to cull (microseconds): " + FString::SanitizeFloat(RollingAverageTime);
+		Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
 		GEngine->AddOnScreenDebugMessage(2, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 		Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
 		GEngine->AddOnScreenDebugMessage(3, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));

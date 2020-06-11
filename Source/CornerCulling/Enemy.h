@@ -29,8 +29,8 @@ class AEnemy : public AActor, public VisiblePrism
 	// If the enemy is revealed, multiply the timer multiplier. Reveal time grows linearly with time
 	// spent visible, as both the growth rate of the multiplier and the time between multiplications
 	// are the same.
-	float RevealTimerMultiplierMultiplier = 1.1f;
-	float RevealTimerMultierMax = 4;
+	float RevealTimerMultiplierMultiplier = 1.05f;
+	float RevealTimerMultierMax = 3;
 
 	// Internal methods for setting visibility.
 	// To externally reveal an enemy, call Reveal().

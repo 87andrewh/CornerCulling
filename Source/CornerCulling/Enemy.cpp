@@ -64,13 +64,15 @@ void AEnemy::UpdateBounds() {
 	ZTop = Center3D.Z + T.GetScale3D().Z * Extents.Z;
 }
 
-// Reveal the enemy, maxing its reveal timer
+// Reveal the enemy.
 void AEnemy::Reveal() {
 	SetVisible();
+	// Honestly, adaptive growth should probably be only turned on when the game is under heavy load.
 	RevealTimerMultiplier *= RevealTimerMultiplierMultiplier;
 	RevealTimer = std::min(RevealTimerMultiplier, RevealTimerMultierMax) * RevealTimerBaseMax + (rand() % RevealTimerJitter);
 }
 
+// Hide the enemy.
 void AEnemy::Hide() {
 	SetInvisible();
 	RevealTimerMultiplier = 1;
