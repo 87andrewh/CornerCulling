@@ -20,7 +20,8 @@ Major Task:
 Overhaul occluding objects. Store occluding objects in level as arbitrary occluding parralellograms,
 with extants defined by vectors. To get relvant corners, fetch by cross product with PlayerCenterToPrismCenter.
 Return coordinates of wall between two
-Move occlusion logic to OcclusionController class.
+Move occlusion logic to OcclusionController class. Remove all multiple inheritance.
+Disentange enemy bounding boxes from enemies. Maybe even remove enemy class to get closer to production code.
 
 Other Tasks (in no order):
 1)  Implement potentialy visible sets to cull enemies and occluding objects.
@@ -33,6 +34,10 @@ Other Tasks (in no order):
 6)  What to do about a wallhacking Jet with a lag switch?
 7)  Update demos.
 8)  Make enemy lingering visibility apaptive only when server is under load.
+9)  Use existence-based predication for caches. Test second chance and random replacement algorithms.
+10) Change "RelevantCorners" to just "LeftAndRightCorners" for readability.
+11) Design doc opimizations for large Battle Royale type games.
+    No culling until enough players die. PVS filter players and occluders.
 
 
 Unbeknownst to me until now (but unsurprisingly), my idea is essential the same as
