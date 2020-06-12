@@ -169,6 +169,6 @@ void ACornerCullingCharacter::GetPerpendicularDisplacement(const FVector2D& Play
 		Displacement = FVector2D::ZeroVector;
 	}
 	// I said ideally.
-	float Magnitude = 15;
+	float Magnitude = 20;
 	Displacement = FVector2D(-PlayerToEnemy.Y, PlayerToEnemy.X) * (Magnitude / Distance);
 }

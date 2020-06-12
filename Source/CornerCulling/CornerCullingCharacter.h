@@ -38,10 +38,6 @@ class ACornerCullingCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FirstPersonCameraComponent;
 
-	/** Used to tune how soon Enemies are culled/revealed when they cross a corner */
-	UPROPERTY(EditAnywhere)
-	float CullingGain = 0.25;
-
 public:
 	ACornerCullingCharacter();
 
