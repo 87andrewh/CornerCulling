@@ -25,47 +25,37 @@ Refactor design doc:
     Culling controller handles all culling. New culling loop.  
     
 ```python
-for team in teams:  
-    for player_i in team:  
-        for enemy_i in enemies(player_i):  
-            if (almost_visible(player_i, enemy_i) or
-                (cull_this_tick() and
-                 potentially_visible(player_i, enemy_i)
-                )
-               ):  
-                enemy_qeueu.push(enemy_i) 
-        for enemy_i in enemy_queue:  
-            left_LOS_segment, right_LOS_segment = get_LOS_segments(player_i, enemy_i)
-            for plane in occluding_finite_plane_caches[player_i]:  
-                if (intersects(left_LOS_segment, plane) or
-                    intersects(right_LOS_segment, plane)
-                   ):
-                    to_hide[player_i, enemy_i] = true
-                    break       # break out of two layers of loops
-            else:               # for ... else statement to break out of outer loop
-                enemy_queue_2.push(enemy_i)
-                continue
+for player_i in player_indicies:  
+    for object in occluding_objects:  
+        if potentially_visible(player_i, object):  
+            occluding_plane_queue.push(get_occluding_finite_plane(player_i, object))
+    for enemy_i in player_indicies:
+        if (get_team(player_i) != get_team(enemy_i) and
+            (almost_visible(player_i, enemy_i) or
+             ((cull_this_tick() and
+              potentially_visible(player_i, enemy_i)
+             )
+            )
+           ):  
+            LOS_segments_queue.push(get_LOS_segments(player_i, enemy_i))
+for segments in LOS_segments_queue:
+    for plane in occluding_plane_caches[segments.player_i]:  
+        if (intersects(segments.left, plane) or
+            intersects(segments.right, plane)
+           ):
+            blocked_queue.push(segment)
+            break       # break out of two layers of loops
+    for plane in occluding_plane_queue:  
+        if (intersects(segment.left, plane) or
+            intersects(segment.right, plane)
+           ):
+            blocked_queue.push(segment)
+            update_cache_LRU(occluding_plane_caches[segments.player_i], plane)
             break
-        for object in occluding_objects:  
-            if potentially_visible(player, object):  
-                occluding_finite_plane_queue.push(get_wall_segment(player, object)) 
-        for enemy_i in enemy_queue_2:  
-            left_LOS_segment, right_LOS_segment = get_LOS_segments(player_i, enemy_i)
-            for plane in occluding_finite_plane_queue:  
-                if (intersects(left_LOS_segment, plane) or
-                    intersects(right_LOS_segment, plane)
-                   ):
-                    to_hide[player_i, enemy_i] = true  
-                    update_cache_LRU(occluding_finite_plane_cache, plane)
-                    break       # break out of two layers of loops
-            else:               # for ... else statement to break out of outer loop
-                continue
-            break
-for player_i, enemy_i in idices(to_hide):
-    hide(player_i, enemy_i)
-enemy_queue.clear()
-enemy_queue_2.clear()
-occluding_finite_plane_queue.clear()
+
+for segments in blocked_queue:
+    hide(segments.player_i, segments.enemy_i)
+reset_queues()
 ```
 
                     
