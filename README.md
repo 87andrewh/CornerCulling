@@ -49,7 +49,7 @@ for team in teams:
         for object in occluding_objects:  
             if potentially_visible(player, object):  
                 occluding_finite_plane_queue.push(get_wall_segment(player, object)) 
-        for enemy in enemy_queue:  
+        for enemy_i in enemy_queue_2:  
             left_LOS_segment, right_LOS_segment = get_LOS_segments(player_i, enemy_i)
             for plane in occluding_finite_plane_queue:  
                 if (intersects(left_LOS_segment, plane) or
@@ -63,6 +63,9 @@ for team in teams:
             break
 for player_i, enemy_i in idices(to_hide):
     hide(player_i, enemy_i)
+enemy_queue.clear()
+enemy_queue_2.clear()
+occluding_finite_plane_queue.clear()
 ```
 
                     
