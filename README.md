@@ -16,30 +16,35 @@ Going up to 1500 objects, computes occlusion in 0.04 ms (average case) and 0.01 
 Occlusion is maximal if it reveals as little as possible while still preventing
 enemies from "popping" into existence when a laggy player peeks.
 
-Major Task:
-Big refactor ¯\_(ツ)_/¯
-Move occlusion logic to OcclusionController class.
-Disentangle VisibilityPrisms from players and occluding objects.
+Major Task:  
+Big refactor ¯\_(ツ)_/¯  
+Move occlusion logic to OcclusionController class.  
+Disentangle VisibilityPrisms from players and occluding objects.  
 
-Refactor design doc:
-    Culling controller handles all culling. New culling loop.
-    For every team:
-        For every player:
-            For enemy in Enemies(player):
-                If PotentiallyVisible(player, enemy) and not LingeringVisibility(player, enemy):
-                    Add enemy to EnemyQueue
-            For enemy in EnemyQueue:
-                For every segment in SegmentCache(player):
-                    LOS check   // should be common case to short circuit here
-            For object in OccludingObjects:
-                If PotentiallyVisible(player, object):
-                    Add RelevantSegment(player, object) to SegmentQueue
-            For every enemy in EnemyQueue:
-                For every segment in SegmentQueue:
-                    LOS check
-                    Update SegmentCache by LRU
+Refactor design doc:  
+    Culling controller handles all culling. New culling loop.  
+    
+    ```python
+    for team in teams:  
+        for player in team:  
+            for enemy in enemies(player):  
+                if potentially_visible(player, enemy) and not lingering_visibility(player, enemy):  
+                    enemy_qeueu.push(enemy) 
+            for enemy in enemy_queue:  
+                left_LOS_segment, right_LOS_segment = get_LOS_segments(player, enemy)
+                for wall_segment in wall_segment_cache(player):  
+                    check_LOS(left_LOS_segment, right_LOS_segment, wall_segment)   # should be common case to short circuit here  
+            for object in occluding_objects:  
+                if potentially_visible(player, object):  
+                    wall_segment_queue.push(get_wall_segment(player, object)) 
+            for enemy in enemy_queue:  
+                left_LOS_segment, right_LOS_segment = get_LOS_segments(player, enemy)
+                for wall_segment in wall_segment-queue:  
+                    check_LOS(left_LOS_segment, right_LOS_segment, wall_segment  
+                    LRU_update(wall_segment_cache, wall_segment)  
+      ```
                     
-Imagine hitting 1 ms while culling for Fortnite.
+Imagine hitting 1 ms while culling for Fortnite. Might have to wait for some people to die.
                
 Other Tasks (in no order):
 1)  Implement potentialy visible sets to cull enemies and occluding objects.
