@@ -80,8 +80,7 @@ Other Tasks (in no order):
     of the enemy, reveal the enemy.
 4)  Reach out to more FPS game developers.
 5)  Continue researching graphics community state of the art.
-6)  What to do about a wallhacking Jet with a lag switch?
-7)  Update demos.
+6)  What to do about a wallhacking Jet with a lag switch? Cull based on trust factor!
 8)  Make enemy lingering visibility adaptive only when server is under load.
 9)  Use existence-based predication for caches. Test LRU, k-th chance, and random replacement algorithms.
 10) Change "RelevantCorners" to just "LeftAndRightCorners" for readability.
