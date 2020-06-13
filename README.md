@@ -17,32 +17,54 @@ Occlusion is maximal if it reveals as little as possible while still preventing
 enemies from "popping" into existence when a laggy player peeks.
 
 Major Task:  
-Big refactor ¯\_(ツ)_/¯  
+Big refactor ¯\\\_(ツ)_/¯  
 Move occlusion logic to OcclusionController class.  
 Disentangle VisibilityPrisms from players and occluding objects.  
 
 Refactor design doc:  
     Culling controller handles all culling. New culling loop.  
     
-    ```python
-    for team in teams:  
-        for player in team:  
-            for enemy in enemies(player):  
-                if potentially_visible(player, enemy) and not lingering_visibility(player, enemy):  
-                    enemy_qeueu.push(enemy) 
-            for enemy in enemy_queue:  
-                left_LOS_segment, right_LOS_segment = get_LOS_segments(player, enemy)
-                for wall_segment in wall_segment_cache(player):  
-                    check_LOS(left_LOS_segment, right_LOS_segment, wall_segment)   # should be common case to short circuit here  
-            for object in occluding_objects:  
-                if potentially_visible(player, object):  
-                    wall_segment_queue.push(get_wall_segment(player, object)) 
-            for enemy in enemy_queue:  
-                left_LOS_segment, right_LOS_segment = get_LOS_segments(player, enemy)
-                for wall_segment in wall_segment-queue:  
-                    check_LOS(left_LOS_segment, right_LOS_segment, wall_segment  
-                    LRU_update(wall_segment_cache, wall_segment)  
-      ```
+```python
+for team in teams:  
+    for player_i in team:  
+        for enemy_i in enemies(player_i):  
+            if (almost_visible(player_i, enemy_i) or
+                (cull_this_tick() and
+                 potentially_visible(player_i, enemy_i)
+                )
+               ):  
+                enemy_qeueu.push(enemy_i) 
+        for enemy_i in enemy_queue:  
+            left_LOS_segment, right_LOS_segment = get_LOS_segments(player_i, enemy_i)
+            for plane in occluding_finite_plane_caches[player_i]:  
+                if (intersects(left_LOS_segment, plane) or
+                    intersects(right_LOS_segment, plane)
+                   ):
+                    to_hide[player_i, enemy_i] = true
+                    break       # break out of two layers of loops
+            else:               # for ... else statement to break out of outer loop
+                enemy_queue_2.push(enemy_i)
+                continue
+            break
+        for object in occluding_objects:  
+            if potentially_visible(player, object):  
+                occluding_finite_plane_queue.push(get_wall_segment(player, object)) 
+        for enemy in enemy_queue:  
+            left_LOS_segment, right_LOS_segment = get_LOS_segments(player_i, enemy_i)
+            for plane in occluding_finite_plane_queue:  
+                if (intersects(left_LOS_segment, plane) or
+                    intersects(right_LOS_segment, plane)
+                   ):
+                    to_hide[player_i, enemy_i] = true  
+                    update_cache_LRU(occluding_finite_plane_cache, plane)
+                    break       # break out of two layers of loops
+            else:               # for ... else statement to break out of outer loop
+                continue
+            break
+for player_i, enemy_i in idices(to_hide):
+    hide(player_i, enemy_i)
+```
+
                     
 Imagine hitting 1 ms while culling for Fortnite. Might have to wait for some people to die.
                
