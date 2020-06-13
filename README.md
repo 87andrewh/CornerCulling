@@ -17,12 +17,30 @@ Occlusion is maximal if it reveals as little as possible while still preventing
 enemies from "popping" into existence when a laggy player peeks.
 
 Major Task:
-Overhaul occluding objects. Store occluding objects in level as arbitrary occluding parralellograms,
-with extants defined by vectors. To get relvant corners, fetch by cross product with PlayerCenterToPrismCenter.
-Return coordinates of wall between two
-Move occlusion logic to OcclusionController class. Remove all multiple inheritance.
-Disentange enemy bounding boxes from enemies. Maybe even remove enemy class to get closer to production code.
+Big refactor ¯\_(ツ)_/¯
+Move occlusion logic to OcclusionController class.
+Disentangle VisibilityPrisms from players and occluding objects.
 
+Refactor design doc:
+    Culling controller handles all culling. New culling loop.
+    For every team:
+        For every player:
+            For enemy in Enemies(player):
+                If PotentiallyVisible(player, enemy) and not LingeringVisibility(player, enemy):
+                    Add enemy to EnemyQueue
+            For enemy in EnemyQueue:
+                For every segment in SegmentCache(player):
+                    LOS check   // should be common case to short circuit here
+            For object in OccludingObjects:
+                If PotentiallyVisible(player, object):
+                    Add RelevantSegment(player, object) to SegmentQueue
+            For every enemy in EnemyQueue:
+                For every segment in SegmentQueue:
+                    LOS check
+                    Update SegmentCache by LRU
+                    
+Imagine hitting 1 ms while culling for Fortnite.
+               
 Other Tasks (in no order):
 1)  Implement potentialy visible sets to cull enemies and occluding objects.
 2)  Test performance of occluding surfaces, aka 2D walls instead of boxes
