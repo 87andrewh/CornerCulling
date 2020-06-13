@@ -25,10 +25,8 @@ Refactor design doc:
     Culling controller handles all culling. New culling loop.  
     
 ```python
+# Get line segments needed to calculate LOS between each player and their enemies.
 for player_i in player_indicies:  
-    for object in occluding_objects:  
-        if potentially_visible(player_i, object):  
-            occluding_plane_queue.push(get_occluding_finite_plane(player_i, object))
     for enemy_i in player_indicies:
         if (get_team(player_i) != get_team(enemy_i) and
             (almost_visible(player_i, enemy_i) or
@@ -38,13 +36,26 @@ for player_i in player_indicies:
             )
            ):  
             LOS_segments_queue.push(get_LOS_segments(player_i, enemy_i))
+
+# Try to block segments with occluding planes in each segments' player's cache.
+# This case should be common and fast.
 for segments in LOS_segments_queue:
     for plane in occluding_plane_caches[segments.player_i]:  
         if (intersects(segments.left, plane) or
             intersects(segments.right, plane)
            ):
             blocked_queue.push(segment)
-            break       # break out of two layers of loops
+            break
+    LOS_segment_queue_2.push(segment)
+
+# Get occluding planes for all potentialy visible occluders.
+for player_i in player_indicies:  
+    for occluder in occluding_prisms:  
+        if potentially_visible(player_i, occluder):  
+            occluding_plane_queue.push(get_occluding_finite_plane(player_i, occluder))
+
+# Check remaining LOS segments against all occluding planes in the queue.
+for segments in LOS_segments_queue_2:
     for plane in occluding_plane_queue:  
         if (intersects(segment.left, plane) or
             intersects(segment.right, plane)
