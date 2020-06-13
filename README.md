@@ -47,7 +47,7 @@ Refactor design doc:
 Imagine hitting 1 ms while culling for Fortnite. Might have to wait for some people to die.
                
 Other Tasks (in no order):
-1)  Implement potentialy visible sets to cull enemies and occluding objects.
+1)  Implement (or hack together) potentialy visible sets to cull enemies and occluding objects.
 2)  Test performance of occluding surfaces, aka 2D walls instead of boxes
 3)  Calculate Z visibility by projecting from top of player to top of wall in the direction
     of the enemy. If this angle hits below the top of the enemy, or hits the smicircle bounding the top
@@ -56,12 +56,11 @@ Other Tasks (in no order):
 5)  Continue researching graphics community state of the art.
 6)  What to do about a wallhacking Jet with a lag switch?
 7)  Update demos.
-8)  Make enemy lingering visibility apaptive only when server is under load.
-9)  Use existence-based predication for caches. Test second chance and random replacement algorithms.
+8)  Make enemy lingering visibility adaptive only when server is under load.
+9)  Use existence-based predication for caches. Test LRU, k-th chance, and random replacement algorithms.
 10) Change "RelevantCorners" to just "LeftAndRightCorners" for readability.
 11) Design doc opimizations for large Battle Royale type games.
     No culling until enough players die. PVS filter players and occluders.
-
 
 Unbeknownst to me until now (but unsurprisingly), my idea is essential the same as
 Shadow Culling, which graphics researchers documented in 1997. <br />
