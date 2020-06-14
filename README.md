@@ -1,6 +1,8 @@
 # CornerCulling
 Fast and maximally accurate culling method. Proof of concept in C++ and UE4.
-Wallhack Penicillin.
+Wallhack Penicillin.  
+Calcualtes lines of sight from possible (due to latency) locations of players to the corners of the bounding volumes of enemies,
+determining if they interesct with the bounding volumes of occluding objects. Analystical approach to raycasts. Speed gains from heuristics and caching.
 
 Runtime demonstration:
 https://youtu.be/SHUXDR0hleU
@@ -8,7 +10,10 @@ https://youtu.be/SHUXDR0hleU
 Accuracy demonstration:
 https://youtu.be/tzrIXcdYQJE
 
-Also accounts for client latency, allowing the server to maximally cull according to where a laggy player could be in the future.
+An alternative implementation could fetch all objects potentially along each line of sight,
+using an efficient bounding volume hiearchy. In a game with a large number of static objects,
+this method's logarithmic complexity would result in huge speedups.
+I could probably hack together a few graphics libraries to achieve this effect.
 
 ## Non-Technical Pitch
 
@@ -45,7 +50,7 @@ for player_i in player_indicies:
              )
             )
            ):  
-            LOS_segments_queue.push(get_LOS_segments(player_i, enemy_i))
+            LOS_segments_queue.push(LOS_segments(player_i, enemy_i))
 
 # Try to block segments with occluding planes in each segments' player's cache.
 # This case should be common and fast.
@@ -54,9 +59,9 @@ for segments in LOS_segments_queue:
         if (intersects(segments.left, plane) or
             intersects(segments.right, plane)
            ):
-            blocked_queue.push(segment)
+            blocked_queue.push(segments)
             break
-    LOS_segment_queue_2.push(segment)
+    LOS_segment_queue_2.push(segments)
 
 # Get occluding planes for all potentialy visible occluders.
 for player_i in player_indicies:  
@@ -67,10 +72,10 @@ for player_i in player_indicies:
 # Check remaining LOS segments against all occluding planes in the queue.
 for segments in LOS_segments_queue_2:
     for plane in occluding_plane_queue:  
-        if (intersects(segment.left, plane) or
-            intersects(segment.right, plane)
+        if (intersects(segments.left, plane) or
+            intersects(segments.right, plane)
            ):
-            blocked_queue.push(segment)
+            blocked_queue.push(segments)
             update_cache_LRU(occluding_plane_caches[segments.player_i], plane)
             break
 
@@ -81,7 +86,6 @@ reset_queues()
                
 ## Other Tasks (in no order):
 1)  Implement (or hack together) potentially visible sets to cull enemies and occluding objects.
-2)  Test performance of occluding surfaces, aka 2D walls instead of boxes
 3)  Calculate Z visibility by projecting from top of player to top of wall in the direction
     of the enemy. If this angle hits below the top of the enemy, or hits the semicircle bounding the top
     of the enemy, reveal the enemy.
@@ -89,13 +93,27 @@ reset_queues()
 5)  Continue researching graphics community state of the art.
 6)  What to do about a wallhacking Jet with a lag switch? Cull based on trust factor!
 8)  Make enemy lingering visibility adaptive only when server is under load.
-9)  Use existence-based predication for caches. Test LRU, k-th chance, and random replacement algorithms.
-10) Change "RelevantCorners" to just "LeftAndRightCorners" for readability.
+9)  Test LRU, k-th chance, and random replacement algorithms.
 11) Design doc opimizations for large Battle Royale type games.
     No culling until enough players die. PVS filter players and occluders.
+12) Stop reinvenitng the wheel. Use graphics libraries and APIs.
 
-## Miscellanea
-Unbeknownst to me at first (but unsurprisingly), my idea is basically just shadow culling,
-which graphics researchers documented in 1997. <br />
-https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1 <br />
-I suspect that I could incorporate improvements made in the past 20 years.
+## Research
+Unsurprisingly, graphics researcher are decades afead of me. My idea is basically just shadow culling,  
+which graphics researchers documented in 1997. <br />  
+https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1 <br />  
+[Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
+[Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
+I suspect that I could incorporate improvements made in the past 20 years.  
+
+Improved bounding boxes (k-dops):
+https://www.youtube.com/watch?v=h4GBU-NXJ1c
+
+Faster raytracing:
+http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
+
+Graphics Libraries:
+https://www.cgal.org/
+https://www.shapeop.org/
+https://www.geometrictools.com/
+/Engine/Source/Runtime/Core/Public/Math/UnrealMathUtility.h
