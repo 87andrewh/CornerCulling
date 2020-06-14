@@ -24,7 +24,7 @@ So, instead of detecting wallhacks, many games have adopted a prevention strateg
 
 Unfortunately, modern implementations of this idea are inaccurate or slow. I have developed a solution that is both perfectly accurate and faster than currently deployed solutions.
 
-## Technical Pitch
+## Technical Details
 
 Instead of using slow raycasts or a fast approximation like PVS, calcualte the exact angle between a player's line of sight to an enemy and the line segment from the player to the nearest corner. We get perfect accuracy for the cost of a few blistering vector products. However, a huge speed gain comes from caching--if a corner blocked a line of sight 7 milliseconds ago, it is damn likely to block the same line of sight now. So we can check recently used corners first. If they block a line of sight, we can skip checking every other corner.
 
@@ -84,35 +84,45 @@ reset_queues()
 ```
                
 ## Other Tasks (in no order):
-1)  Implement (or hack together) potentially visible sets to cull enemies and occluding objects.
-3)  Calculate Z visibility by projecting from top of player to top of wall in the direction
-    of the enemy. If this angle hits below the top of the enemy, or hits the semicircle bounding the top
-    of the enemy, reveal the enemy.
-4)  Reach out to more FPS game developers.
-5)  Continue researching graphics community state of the art.
-6)  What to do about a wallhacking Jet with a lag switch? Cull based on trust factor!
-8)  Make enemy lingering visibility adaptive only when server is under load.
-9)  Test LRU, k-th chance, and random replacement algorithms.
-11) Design doc opimizations for large Battle Royale type games.
-    No culling until enough players die. PVS filter players and occluders.
-12) Stop reinvenitng the wheel. Use graphics libraries and APIs.
+1)  Implement (or hack together) potentially visible sets to pre-cull enemies and occluding objects.
+    Also, consider using bounding volume heiarchy or binary space partition to only check objects
+    along each line of sight  
+3)  Calculate Z visibility by projecting 4 corners of enemies against 3 closest planes of occluding boxes.  
+4)  Reach out to more FPS game developers.  
+5)  Continue researching graphics community state of the art.  
+6)  What to do about a wallhacking Jet with a lag switch? Cull harder based on trust factor?  
+8)  Make enemy lingering visibility adaptive only when server is under load.  
+9)  Test LRU, k-th chance, and random replacement algorithms. I suspect LRU is optimal due
+    to small cache sizes and light overhead compared to checking operations  
+11) Design doc opimizations for large Battle Royale type games.  
+    No culling until enough players die. PVS filter players and occluders. Only cull accurately up close.  
+12) Stop reinvenitng the wheel. Use graphics libraries and APIs. Reasons to stay in UE4?  
 
 ## Research
-Unsurprisingly, graphics researcher are decades afead of me. My idea is basically just shadow culling,  
+Unsurprisingly (and fortunately), graphics researcher are decades ahead. My idea is basically shadow culling,  
 which graphics researchers documented in 1997. <br />  
 https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1 <br />  
 [Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
 [Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
 I suspect that I could incorporate improvements made in the past 20 years.  
 
-Improved bounding boxes (k-dops):
-https://www.youtube.com/watch?v=h4GBU-NXJ1c
+### Improved bounding boxes (k-dops):  
+https://www.youtube.com/watch?v=h4GBU-NXJ1c  
 
-Faster raytracing:
-http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
+### Faster raytracing:  
+http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf  
+https://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/14/lec14.pdf
+https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
+http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
 
-Graphics Libraries:
-https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html
-https://www.cgal.org/
-https://www.shapeop.org/
-https://www.geometrictools.com/
+"a large custom static mesh with no instancing, such as an urban scene, or a complex indoor environment, will typically use a BSP-Tree for improved runtime performance. The fact that the BSP-Tree splits geometry on node-boundaries is helpful for rendering performance, because the BSP nodes can be used as pre-organized triangle rendering batches. The BSP-Tree can also be optimized for occlusion, avoiding the need to draw portions of the BSP-Tree which are known to be behind other geometry."  
+https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
+
+### Occlusion Culling:  
+http://www.cs.unc.edu/~zhangh/hom.html  
+
+## Graphics Libraries:  
+https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html  
+https://www.cgal.org/  
+https://www.shapeop.org/  
+https://www.geometrictools.com/  
