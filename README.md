@@ -10,7 +10,7 @@ https://youtu.be/tzrIXcdYQJE
 
 Also accounts for client latency, allowing the server to maximally cull according to where a laggy player could be in the future.
 
-## Pitch
+## Non-Technical Pitch
 
 While not as rage-inducing as a blatant aim-botter, a wallhacker inflicts great mental strain on their victims, making them constantly uneasy and suspicious. Many serious FPS players, including myself, have spent hours staring at replays, trying to catch them red-handed. But at some point, it all becomes too exhausting.
 
@@ -20,6 +20,11 @@ So, instead of detecting wallhacks, many games have adopted a prevention strateg
 
 Unfortunately, modern implementations of this idea are inaccurate or slow. I have developed a solution that is both perfectly accurate and faster than currently deployed solutions.
 
+## Technical Pitch
+
+Instead of using slow raycasts or a fast approximation like PVS, calcualte the exact angle between a player's line of sight to an enemy and the line segment from the player to the nearest corner. We get perfect accuracy for the cost of a few blistering vector products. However, a huge speed gain comes from caching--if a corner blocked a line of sight 7 milliseconds ago, it is damn likely to block the same line of sight now. So we can check recently used corners first. If they block a line of sight, we can skip checking every other corner.
+
+Also, we must account for latency to prevent popping. I do this by calculating angles not from the player's current position, but the most aggressive angles they could peek.
 
 ## Major Task:  
 Big refactor ¯\\\_(ツ)_/¯  
