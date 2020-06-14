@@ -12,8 +12,7 @@ https://youtu.be/tzrIXcdYQJE
 
 An alternative implementation could fetch all objects potentially along each line of sight,
 using an efficient bounding volume hiearchy. In a game with a large number of static objects,
-this method's logarithmic complexity would result in huge speedups.
-I could probably hack together a few graphics libraries to achieve this effect.
+this method's logarithmic complexity could result in huge speedups.
 
 ## Non-Technical Pitch
 
@@ -113,7 +112,7 @@ Faster raytracing:
 http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
 
 Graphics Libraries:
+https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html
 https://www.cgal.org/
 https://www.shapeop.org/
 https://www.geometrictools.com/
-/Engine/Source/Runtime/Core/Public/Math/UnrealMathUtility.h
