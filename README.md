@@ -93,6 +93,7 @@ reset_queues() # In practice we probably just pop in the loops, but this design 
 - Account for Z axis with more general line of sight check. Outlined below.
 - Implement UE4 polyhedra imports by creating convex hulls from blue-print editable lists of points.
 - Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
+- Research out to fraud detection experts and anti-cheat developers in other industries.
 - Reach out to more FPS game developers, as well as executives.
 - Continue researching graphics community state of the art.
 - Make enemy lingering visibility adaptive to server load.
@@ -105,6 +106,7 @@ reset_queues() # In practice we probably just pop in the loops, but this design 
   of their left is visible to one box, and a sliver of their right is visible to another.
   One idea is to divide player bounding boxes into 4 along the X and Y axis.
   I don't know if it's worth it.
+- Consider sending fake enemy locations.
 
 ### General blocking LOS check:
 - Take as input a player camera location, the enemy bounding volume(s), and a possibly occluding convex polyhedra.
