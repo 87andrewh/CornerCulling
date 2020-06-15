@@ -38,13 +38,37 @@ class ACornerCullingCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FirstPersonCameraComponent;
 
-public:
-	ACornerCullingCharacter();
-
 protected:
 	virtual void BeginPlay();
 
+	/** Fires a projectile. */
+	void OnFire();
+
+	/** Handles moving forward/backward */
+	void MoveForward(float Val);
+
+	/** Handles strafing movement, left and right */
+	void MoveRight(float Val);
+
+	/**
+	 * Called via input to turn at a given rate.
+	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	 */
+	void TurnAtRate(float Rate);
+
+	/**
+	 * Called via input to turn look up/down at a given rate.
+	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	 */
+	void LookUpAtRate(float Rate);
+
+	// APawn interface
+	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+	// End of APawn interface
+
 public:
+	ACornerCullingCharacter();
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -61,35 +85,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	class UAnimMontage* FireAnimation;
 
-protected:
-
-	/** Fires a projectile. */
-	void OnFire();
-
-	/** Handles moving forward/backward */
-	void MoveForward(float Val);
-
-	/** Handles stafing movement, left and right */
-	void MoveRight(float Val);
-
-	/**
-	 * Called via input to turn at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void TurnAtRate(float Rate);
-
-	/**
-	 * Called via input to turn look up/down at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void LookUpAtRate(float Rate);
-
-protected:
-	// APawn interface
-	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
-	// End of APawn interface
-
-public:
 	/** Do something on each game tick **/
 	virtual void Tick(float DeltaTime) override;
 	
@@ -101,6 +96,6 @@ public:
 
 	// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
 	// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
-	// plyaer maximum speed, player maximum velocity, and location-modifying game events.
+	// player maximum speed, player maximum velocity, and location-modifying game events.
 	void GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& PerpendicularPlayerDisplacement);
 };
