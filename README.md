@@ -53,55 +53,53 @@ for player_i in player_indicies:
              )
             )
            ):  
-            LOS_segments_queue.push(LOS_segments(player_i, enemy_i))
+            LOS_bundle_queue.push(LOS_bundle(player_i, enemy_i))
 
-# Try to block segments with occluding planes in each segments' player's cache.
+# Try to block segments with occluders in each bundles player's cache.
 # This case should be common and fast.
-for segments in LOS_segments_queue:
-    for plane in occluding_plane_caches[segments.player_i]:  
-        if (intersects(segments.left, plane) or
-            intersects(segments.right, plane)
-           ):
-            blocked_queue.push(segments)
+for bundle in LOS_bundle_queue:
+    for z_wall in z_wall_caches[bundle.player_i]:  
+        if check_LOS(bundle, wall):
+            blocked_queue.push(bundle)
             break
-    LOS_segment_queue_2.push(segments)
-
-# Get occluding planes for all potentialy visible occluders.
-for player_i in player_indicies:  
-    for occluder in occluding_prisms:  
-        if potentially_visible(player_i, occluder):  
-            occluding_plane_queue.push(get_occluding_finite_plane(player_i, occluder))
+    for cuboid in cuboid_caches[bundle.player_i]:  
+        if check_LOS(bundle, cuboid):
+            blocked_queue.push(bundle)
+            break
+    LOS_bundle_queue_2.push(segments)
 
 # Check remaining LOS segments against all occluding planes in the queue.
-for segments in LOS_segments_queue_2:
-    for plane in occluding_plane_queue:  
-        if (intersects(segments.left, plane) or
-            intersects(segments.right, plane)
-           ):
-            blocked_queue.push(segments)
-            update_cache_LRU(occluding_plane_caches[segments.player_i], plane)
+for bundle in LOS_bundle_queue_2:
+    for wall in get_z_walls(bundle):  
+        if check_LOS(bundle, wall):
+            blocked_queue.push(bundle)
+            update_cache_LRU(z_wall_caches[bundle.player_i], wall)
+            break
+    for cuboid in get_cuboids(bundle):  # Everything, a PVS set, or an octree/BSP/BVH search result  
+        if check_LOS(bundle, cuboid):
+            blocked_queue.push(bundle)
+            update_cache_LRU(cuboid_caches[bundle.player_i], cuboid)
             break
 
-for segments in blocked_queue:
-    hide(segments.player_i, segments.enemy_i)
-reset_queues()
+for bundle in blocked_queue:
+    hide(bundle.player_i, bundle.enemy_i)
+reset_queues() # In practice we probably just pop in the loops, but this design is clearer
 ```
                
 ## Other Tasks (in no order):
 - Implement (or hack together) potentially visible sets to pre-cull enemies and occluding objects.
 - Consider using bounding volume hierarchy or binary space partition to only check objects
-  along each line of sight  
+  along each line of sight
 - Account for Z axis with more general line of sight check. Outlined below.
 - Implement UE4 polyhedra imports by creating convex hulls from blue-print editable lists of points.
 - Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
-- Reach out to more FPS game developers.  
-- Continue researching graphics community state of the art.  
-- What to do about a wallhacking Jet with a lag switch? Cull harder based on trust factor?  
-- Make enemy lingering visibility adaptive only when server is under load.  
+- Reach out to more FPS game developers, as well as executives.
+- Continue researching graphics community state of the art.
+- Make enemy lingering visibility adaptive to server load.
 - Test LRU, K-th chance, and random replacement algorithms. I suspect LRU is optimal due
-  to small cache sizes and light overhead compared to checking operations  
-- Design optimizations for large Battle Royale type games.  
-  No culling until enough players die. PVS filter players and occluders. Only cull accurately up close.  
+  to small cache sizes and light overhead compared to checking operations.
+- Design optimizations for large Battle Royale type games.
+  No culling until enough players die. PVS filter players and occluders. Only cull accurately up close.
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
@@ -152,7 +150,6 @@ https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?pri
 [Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
 
 ## Graphics Libraries:  
-https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html  
 https://www.cgal.org/  
-https://www.shapeop.org/  
 https://www.geometrictools.com/  
+https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html  
