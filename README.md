@@ -87,11 +87,11 @@ reset_queues() # In practice we probably just pop in the loops, but this design 
 ```
                
 ## Other Tasks (in no order):
-- Implement (or hack together) potentially visible sets to pre-cull enemies and occluding objects.
+- Implement potentially visible sets to pre-cull enemies or get relevant occluding objects.
 - Consider using bounding volume hierarchy or binary space partition to only check objects
   along each line of sight
 - Account for Z axis with more general line of sight check. Outlined below.
-- Implement UE4 polyhedra imports by creating convex hulls from blue-print editable lists of points.
+- Implement UE4 API for map editing, most basically as a cuboid blueprint with editable vertices.
 - Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
 - Research out to fraud detection experts and anti-cheat developers in other industries.
 - Reach out to more FPS game developers, as well as executives.
@@ -104,8 +104,9 @@ reset_queues() # In practice we probably just pop in the loops, but this design 
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
-  One idea is to divide player bounding boxes into 4 along the X and Y axis.
-  I don't know if it's worth it.
+  To solve this issue, store blocked status of each line of sight (in a bundle) individually,
+  and cull them individually for each object. When all lines are blocked, the enemy is culled.
+  I think this idea actually increases speed to. Wow, I love a win-win!
 - Consider sending fake enemy locations.
 
 ### General blocking LOS check:
