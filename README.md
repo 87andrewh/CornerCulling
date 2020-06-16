@@ -150,7 +150,11 @@ https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-
 ### Fast polyhedra/line intersection
 https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
 
-### Note
+### Potentially Useful Geomeotry
+https://en.wikipedia.org/wiki/Back-face_culling
+https://en.wikipedia.org/wiki/Clipping_(computer_graphics)
+
+### Note on (un) originaliy
 Unsurprisingly (and fortunately), graphics researchers are decades ahead. My idea is basically shadow culling,  
 which graphics researchers documented in 1997. <br />  
 https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1 <br />  
