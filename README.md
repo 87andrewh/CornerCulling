@@ -104,9 +104,11 @@ reset_queues() # In practice we probably just pop in the loops, but this design 
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
-  To solve this issue, store blocked status of each line of sight (in a bundle) individually,
-  and cull them individually for each object. When all lines are blocked, the enemy is culled.
-  I think this idea actually increases speed to. Wow, I love a win-win!
+  We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
+  Say, have a midpoint on each edge. If it and one of its neighbors are occluded, throw away the neighbor.
+  Alternatively, think of subviding one bounding polyhedra into many, and cull those individually.
+  Still, this seems like a lot extra work (to code, and I think during runtime) for a niche situation. 
+- Consider z-buffer algorithm.
 - Consider sending fake enemy locations.
 
 ### General blocking LOS check:
@@ -144,6 +146,9 @@ http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spa
 
 "a large custom static mesh with no instancing, such as an urban scene, or a complex indoor environment, will typically use a BSP-Tree for improved runtime performance. The fact that the BSP-Tree splits geometry on node-boundaries is helpful for rendering performance, because the BSP nodes can be used as pre-organized triangle rendering batches. The BSP-Tree can also be optimized for occlusion, avoiding the need to draw portions of the BSP-Tree which are known to be behind other geometry."  
 https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
+
+### Fast polyhedra/line intersection
+https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
 
 ### Note
 Unsurprisingly (and fortunately), graphics researchers are decades ahead. My idea is basically shadow culling,  
