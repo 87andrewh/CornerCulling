@@ -74,11 +74,11 @@ struct FCuboid {
 					Perimeter[2] = 6;
 					Perimeter[3] = 5;
 					break;
-				Normal = FVector::CrossProduct(
-					C->Vertices[Perimeter[1]] - C->Vertices[Perimeter[0]],
-					C->Vertices[Perimeter[2]] - C->Vertices[Perimeter[0]]
-				);
 			}
+			Normal = FVector::CrossProduct(
+				C->Vertices[Perimeter[1]] - C->Vertices[Perimeter[0]],
+				C->Vertices[Perimeter[2]] - C->Vertices[Perimeter[0]]
+			).GetSafeNormal(1e-6);
 		}
 	};
 	Face Faces[CUBOID_F];
@@ -247,7 +247,8 @@ public:
 	}
 	
 	// Draw a line between two vectors. For debugging.	
-	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2) {
-		DrawDebugLine(World, V1, V2, FColor::Emerald, false, 0.05f, 0, 2.f);
+	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false) {
+		float Duration = 0.1f;
+		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, Duration, 0, 2.f);
 	}
 };
