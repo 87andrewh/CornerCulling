@@ -71,7 +71,7 @@ public:
 
 	// Team Number
 	UPROPERTY(EditAnywhere)
-	unsigned int Team;
+	int Team;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)

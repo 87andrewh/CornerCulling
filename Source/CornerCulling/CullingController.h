@@ -25,7 +25,6 @@ struct FCuboid {
 		// Indexes of vertices that define the perimeter. Counter-clockwise from outside view.
 		unsigned char Perimeter [CUBOID_FACE_V];
 		Face() {}
-  
 		// Faces are ordered
 		//	   .+---------+  
 		//	 .' |  0    .'|  
@@ -36,39 +35,45 @@ struct FCuboid {
 		//	|  ,+-----+---+  
 		//	|.'    5  | .'   
 		//	+---------+'    
-		//	Just to reiterate, 1 is in front, and we continue counterclockwise.
-  		Face(unsigned char i, FCuboid* C) {
+		//	To reiterate, 1 is in front, and we continue counterclockwise.
+  		Face(int i, FCuboid* C) {
   			switch (i) {
   				case 0:
   					Perimeter[0] = 0;
   					Perimeter[1] = 1;
   					Perimeter[2] = 2;
 					Perimeter[3] = 3;
+					break;
 				case 1:
 					Perimeter[0] = 2;
 					Perimeter[1] = 6;
 					Perimeter[2] = 7;
 					Perimeter[3] = 3;
+					break;
 				case 2:
 					Perimeter[0] = 0;
 					Perimeter[1] = 3;
 					Perimeter[2] = 7;
 					Perimeter[3] = 4;
+					break;
 				case 3:
 					Perimeter[0] = 0;
 					Perimeter[1] = 4;
 					Perimeter[2] = 5;
 					Perimeter[3] = 1;
+					break;
 				case 4:
 					Perimeter[0] = 1;
 					Perimeter[1] = 5;
 					Perimeter[2] = 6;
 					Perimeter[3] = 2;
+					break;
 				case 5:
 					Perimeter[0] = 4;
 					Perimeter[1] = 7;
 					Perimeter[2] = 6;
 					Perimeter[3] = 5;
+					break;
 				Normal = FVector::CrossProduct(
 					C->Vertices[Perimeter[1]] - C->Vertices[Perimeter[0]],
 					C->Vertices[Perimeter[2]] - C->Vertices[Perimeter[0]]
@@ -93,10 +98,10 @@ struct FCuboid {
 		if (V.Num() != CUBOID_V) {
 			return;
 		}
-		for (unsigned char i = 0; i < CUBOID_V; i++) {
+		for (int i = 0; i < CUBOID_V; i++) {
 			Vertices[i] = FVector(V[i]);
 		}
-		for (unsigned char i = 0; i < CUBOID_F; i++) {
+		for (int i = 0; i < CUBOID_F; i++) {
 			Faces[i] = Face(i, this);
 		}
 	}
@@ -238,11 +243,11 @@ public:
 
 	// Mark a vector. For debugging.
 	static inline void MarkFVector(UWorld* World, const FVector& V) {
-		DrawDebugLine(World, V, V + FVector(0, 0, 100), FColor::Emerald, false, 0.3f, 0, 2.f);
+		DrawDebugLine(World, V, V + FVector(0, 0, 100), FColor::Red, false, 0.1f, 0, 2.f);
 	}
 	
 	// Draw a line between two vectors. For debugging.	
 	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2) {
-		DrawDebugLine(World, V1, V2, FColor::Emerald, false, 0.2f, 0, 1.f);
+		DrawDebugLine(World, V1, V2, FColor::Emerald, false, 0.05f, 0, 2.f);
 	}
 };

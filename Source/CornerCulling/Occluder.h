@@ -3,37 +3,32 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
 #include "CullingController.h"
 #include "Occluder.generated.h"
 
 // Box that occludes vision.
-// MAP EDITORS, OVERLAP YOUR BOXES FOR FASTER FRAMES !!!
-// The more boxes block a line of sight, the more likely it is to find one quickly.
-// But don't add redundant boxes.
-UCLASS()
+ UCLASS(BlueprintType, Blueprintable)
 class AOccluder : public AActor
 {
 	GENERATED_BODY()
 	
 	//  Vectors that define the vertices of the cuboid.
 	UPROPERTY(EditAnywhere)
-	FVector V0;
+	FVector V0 = FVector(200, 200, 200);
 	UPROPERTY(EditAnywhere)
-	FVector V1;
+	FVector V1 = FVector(-200, 200, 200);
 	UPROPERTY(EditAnywhere)
-	FVector V2;
+	FVector V2 = FVector(-200, -200, 200);
 	UPROPERTY(EditAnywhere)
-	FVector V3;
+	FVector V3 = FVector(200, -200, 200);
 	UPROPERTY(EditAnywhere)
-	FVector V4;
+	FVector V4 = FVector(200, 200, -200);
 	UPROPERTY(EditAnywhere)
-	FVector V5;
+	FVector V5 = FVector(-200, 200, -200);
 	UPROPERTY(EditAnywhere)
-	FVector V6;
+	FVector V6 = FVector(-200, -200, -200);
 	UPROPERTY(EditAnywhere)
-	FVector V7;
-
+	FVector V7 = FVector(200, -200, -200);
 
 public:	
 	AOccluder();

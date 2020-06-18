@@ -33,7 +33,6 @@ void ACullingController::BeginPlay()
     }
 }
 
-//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, "Ree");
 void ACullingController::UpdateCharacterBounds()
 {
 	Bounds.Reset(Characters.Num());
