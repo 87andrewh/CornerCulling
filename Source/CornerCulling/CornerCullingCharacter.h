@@ -27,7 +27,7 @@ class ACornerCullingCharacter : public ACharacter
 	class USceneComponent* FP_MuzzleLocation;
 
 	/** Gun mesh: VR view (attached to the VR controller directly, no arm, just the actual gun) */
-	UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+	UPROPERTY(VisibleAnywhere, Category = Mesh)
 	class USkeletalMeshComponent* VR_Gun;
 
 	/** Location on VR gun mesh where projectiles should spawn. */
@@ -93,9 +93,4 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 	FVector GetCameraLocation();
-
-	// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
-	// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
-	// player maximum speed, player maximum velocity, and location-modifying game events.
-	void GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& PerpendicularPlayerDisplacement);
 };

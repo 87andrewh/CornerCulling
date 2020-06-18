@@ -20,7 +20,6 @@ ACornerCullingCharacter::ACornerCullingCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
-
 	// set our turn rates for input
 	BaseTurnRate = 0.1886f;
 	BaseLookUpRate = 0.1886f;
@@ -158,17 +157,4 @@ void ACornerCullingCharacter::Tick(float DeltaTime)
 FVector ACornerCullingCharacter::GetCameraLocation()
 {
 	return GetFirstPersonCameraComponent()->GetComponentLocation();
-}
-
-// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
-// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
-// plyaer maximum speed, player maximum velocity, and location-modifying game events.
-void ACornerCullingCharacter::GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& Displacement) {
-	float Distance = PlayerToEnemy.Size();
-	if (abs(Distance) < Utils::MIN_SAFE_LENGTH) {
-		Displacement = FVector2D::ZeroVector;
-	}
-	// I said ideally.
-	float Magnitude = 20;
-	Displacement = FVector2D(-PlayerToEnemy.Y, PlayerToEnemy.X) * (Magnitude / Distance);
 }

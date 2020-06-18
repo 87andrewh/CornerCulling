@@ -2,7 +2,6 @@
 
 #include "CornerCullingGameMode.h"
 #include "CornerCullingHUD.h"
-#include "CullingController.h"
 #include "DrawDebugHelpers.h"
 //#include "CornerCullingCharacter.h"
 
@@ -20,8 +19,7 @@ ACornerCullingGameMode::ACornerCullingGameMode()
 	HUDClass = ACornerCullingHUD::StaticClass();
 }
 
-void ACornerCullingGameMode::BeginPlay() {
-}
+void ACornerCullingGameMode::BeginPlay() {}
 
 void ACornerCullingGameMode::MarkFVector(const FVector2D& V) {
 	FVector start = FVector(V.X, V.Y, 200);
@@ -37,5 +35,4 @@ void ACornerCullingGameMode::ConnectVectors(const FVector2D& V1, const FVector2D
 void ACornerCullingGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	CullingController->BenchmarkCull();
 }

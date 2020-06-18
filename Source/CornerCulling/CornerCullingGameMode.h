@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "CullingController.h"
 #include "CornerCullingGameMode.generated.h"
 
 UCLASS(minimalapi)
