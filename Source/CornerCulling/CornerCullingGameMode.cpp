@@ -21,16 +21,6 @@ ACornerCullingGameMode::ACornerCullingGameMode()
 
 void ACornerCullingGameMode::BeginPlay() {}
 
-void ACornerCullingGameMode::MarkFVector(const FVector2D& V) {
-	FVector start = FVector(V.X, V.Y, 200);
-	FVector end = start + FVector(0, 0, 200);
-	DrawDebugLine(GetWorld(), start, end, FColor::Emerald, false, 0.3f, 0, 0.2f);
-}
-
-void ACornerCullingGameMode::ConnectVectors(const FVector2D& V1, const FVector2D& V2) {
-	DrawDebugLine(GetWorld(), FVector(V1.X, V1.Y, 260), FVector(V2.X, V2.Y, 260), FColor::Emerald, false, 0.3f, 0, 0.2f);
-}
-
   
 void ACornerCullingGameMode::Tick(float DeltaTime)
 {

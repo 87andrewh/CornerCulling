@@ -6,13 +6,14 @@
 #include "CornerCullingCharacter.h"
 #include "GameFramework/Info.h"
 #include "Math/UnrealMathUtility.h"
+#include "DrawDebugHelpers.h"
 #include "CullingController.generated.h"
 
 // Number of vertices and faces of a cuboid.
 # define CUBOID_V 8
 # define CUBOID_F 6
-// Number of edges in a face of a cuboid.
-# define CUBOID_E 4
+// Number of vertices in a face of a cuboid.
+# define CUBOID_FACE_V 4
 // Cuboid defined by 8 points in space.
 // TODO: Test cache alignment.
 
@@ -22,14 +23,26 @@ struct FCuboid {
 	struct Face {
 		FVector Normal;
 		// Indexes of vertices that define the perimeter. Counter-clockwise from outside view.
-		unsigned char Perimeter [CUBOID_E];
+		unsigned char Perimeter [CUBOID_FACE_V];
 		Face() {}
-		Face(unsigned char i, FCuboid* C) {
-			switch (i) {
-				case 0:
-					Perimeter[0] = 0;
-					Perimeter[1] = 1;
-					Perimeter[2] = 2;
+  
+		// Faces are ordered
+		//	   .+---------+  
+		//	 .' |  0    .'|  
+		//	+---+-----+'  |  
+		//	|   |    3|   |  
+		//	| 4 |     | 2 |  
+		//	|   |1    |   |  
+		//	|  ,+-----+---+  
+		//	|.'    5  | .'   
+		//	+---------+'    
+		//	Just to reiterate, 1 is in front, and we continue counterclockwise.
+  		Face(unsigned char i, FCuboid* C) {
+  			switch (i) {
+  				case 0:
+  					Perimeter[0] = 0;
+  					Perimeter[1] = 1;
+  					Perimeter[2] = 2;
 					Perimeter[3] = 3;
 				case 1:
 					Perimeter[0] = 2;
@@ -67,13 +80,29 @@ struct FCuboid {
 	UPROPERTY(EditAnywhere)
 	FVector Vertices [CUBOID_V];
 	FCuboid () {}
-	FCuboid(FVector V[]) {
+	// Construct a cuboid from a list of vertices.
+	// vertices should be ordered
+	//	    .1------0
+	//	  .' |    .'|
+	//	 2---+--3'  |
+	//	 |   |  |   |
+	//	 |  .5--+---4
+	//	 |.'    | .'
+	//	 6------7'
+	FCuboid(TArray<FVector> V) {
+		if (V.Num() != CUBOID_V) {
+			return;
+		}
 		for (unsigned char i = 0; i < CUBOID_V; i++) {
 			Vertices[i] = FVector(V[i]);
 		}
 		for (unsigned char i = 0; i < CUBOID_F; i++) {
 			Faces[i] = Face(i, this);
 		}
+	}
+	// Return the vertex on face i with perimeter index j.
+	FVector GetVertex(int i, int j) {
+		return Vertices[Faces[i].Perimeter[j]];
 	}
 };
 
@@ -92,7 +121,7 @@ struct Segment {
 struct CharacterBounds {
 	FVector Center;
 	// Center of bounding sphere
-	float Radius;
+	float Radius = 20;
 	// Divide vertices to skip the bottom half when a payer peeks it from above and vice versa.
 	// This halves the work, but can over-cull if the bottom edge of an enemy is not aligned with the top
 	// and that bottom edge would stick out out when peeking over a chamfered wall.
@@ -103,14 +132,15 @@ struct CharacterBounds {
 	// Vertices in bottom half of the bounding volume.
 	TArray<FVector> BottomVertices;
 	CharacterBounds(FTransform T) {
-		TopVertices.Emplace(T.TransformVectorNoScale(FVector(10, 10, 10)));
-		TopVertices.Emplace(T.TransformVectorNoScale(FVector(10, -10, 10)));
-		TopVertices.Emplace(T.TransformVectorNoScale(FVector(-10, 10, 10)));
-		TopVertices.Emplace(T.TransformVectorNoScale(FVector(-10, -10, 10)));
-		BottomVertices.Emplace(T.TransformVectorNoScale(FVector(10, 10, -10)));
-		BottomVertices.Emplace(T.TransformVectorNoScale(FVector(10, -10, -10)));
-		BottomVertices.Emplace(T.TransformVectorNoScale(FVector(-10, 10, -10)));
-		BottomVertices.Emplace(T.TransformVectorNoScale(FVector(-10, -10, -10)));
+		Center = T.GetTranslation();
+		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, 100)));
+		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, 100)));
+		TopVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, 100)));
+		TopVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, 100)));
+		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, -100)));
+		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, -100)));
+		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, -100)));
+		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, -100)));
 	}
 	CharacterBounds() {}
 };
@@ -175,7 +205,8 @@ class ACullingController : public AInfo
 	// Store overall average culling time.
 	float TotalTime = 0;
 
-	// Update bounding volumes of players according to transformation and children.
+	// Update bounding volumes of characters according to their transformation.
+	// Can be changed to include changes in gun length.
 	void UpdateCharacterBounds();
 	// Calculate all LOS bundles and add them to the queue.
 	void PopulateBundles();
@@ -204,4 +235,14 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	void Cull();
 	void BenchmarkCull();
+
+	// Mark a vector. For debugging.
+	static inline void MarkFVector(UWorld* World, const FVector& V) {
+		DrawDebugLine(World, V, V + FVector(0, 0, 100), FColor::Emerald, false, 0.3f, 0, 2.f);
+	}
+	
+	// Draw a line between two vectors. For debugging.	
+	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2) {
+		DrawDebugLine(World, V1, V2, FColor::Emerald, false, 0.2f, 0, 1.f);
+	}
 };

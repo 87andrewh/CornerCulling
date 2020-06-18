@@ -14,8 +14,6 @@ class ACornerCullingGameMode : public AGameModeBase
 
 protected:
 	virtual void BeginPlay() override;
-	void MarkFVector(const FVector2D& V);
-	void ConnectVectors(const FVector2D& V1, const FVector2D& V2);
 
 public:
 	ACornerCullingGameMode();

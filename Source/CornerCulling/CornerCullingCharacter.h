@@ -69,6 +69,10 @@ protected:
 public:
 	ACornerCullingCharacter();
 
+	// Team Number
+	UPROPERTY(EditAnywhere)
+	unsigned int Team;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -92,5 +96,4 @@ public:
 	FORCEINLINE class USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
-	FVector GetCameraLocation();
 };

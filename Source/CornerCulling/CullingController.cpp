@@ -6,7 +6,6 @@
 #include "Occluder.h"
 #include "Utils.h"
 #include "Math/UnrealMathUtility.h"
-//#include "DrawDebugHelpers.h"
 #include <chrono> 
 
 ACullingController::ACullingController()
@@ -34,12 +33,13 @@ void ACullingController::BeginPlay()
     }
 }
 
-
+//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, "Ree");
 void ACullingController::UpdateCharacterBounds()
 {
+	Bounds.Reset(Characters.Num());
 	for (int i = 0; i < Characters.Num(); i++) {
 		if (IsAlive[i]) {
-			Bounds.Add(CharacterBounds(Characters[i]->GetActorTransform()));
+			Bounds.Emplace(CharacterBounds(Characters[i]->GetActorTransform()));
 		}
 	}
 }
@@ -72,6 +72,7 @@ void ACullingController::UpdateVisibility()
 
 void ACullingController::ClearQueues()
 {
+	
 }
 
 

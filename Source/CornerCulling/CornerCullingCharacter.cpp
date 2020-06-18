@@ -153,8 +153,3 @@ void ACornerCullingCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
-
-FVector ACornerCullingCharacter::GetCameraLocation()
-{
-	return GetFirstPersonCameraComponent()->GetComponentLocation();
-}
