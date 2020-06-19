@@ -29,7 +29,7 @@ void ACullingController::BeginPlay()
     for (AOccluder* Occluder : TActorRange<AOccluder>(GetWorld()))
     {
 		// Try profiling emplace.
-		OccludingCuboids.Add(Occluder->OccludingCuboid);
+		Cuboids.Add(Occluder->OccludingCuboid);
     }
 }
 
@@ -45,11 +45,13 @@ void ACullingController::UpdateCharacterBounds()
 
 void ACullingController::PopulateBundles()
 {
+	BundleQueue.Reset();
 	for (int i = 0; i < Characters.Num(); i++) {
 		if (IsAlive[i]) {
+			int TeamI = Characters[i]->Team;
 			for (int j = 0; j < Characters.Num(); j++) {
-				if ((i != j) && IsAlive[j]) {
-					BundleQueue.Add(Bundle(i, j));
+				if (IsAlive[j] && (TeamI != Characters[j]->Team) && (VisibilityTimers[i][j] == 0)) {
+					BundleQueue.Emplace(Bundle(i, j));
 				}
 			}
 		}
@@ -58,20 +60,134 @@ void ACullingController::PopulateBundles()
 
 void ACullingController::CullWithCache()
 {
+	BundleQueue2.Reset();
+	for (Bundle B : BundleQueue) {
+		bool Blocked = false;
+		for (int k = 0; k < CUBOID_CACHE_SIZE; k++) {
+			if (IsBlocking(B, Cuboids[CuboidCaches[B.PlayerI][B.EnemyI][k]])) {
+				Blocked = true;
+				CacheTimers[B.PlayerI][B.EnemyI][k] = TotalTicks;
+			}
+		}
+		if (!Blocked) {
+			// Try emplace later.
+			BundleQueue2.Add(B);
+		}
+	}
 }
 
 void ACullingController::CullRemaining()
 {
+	for (Bundle B : BundleQueue2) {
+		bool Blocked = false;
+		for (int CuboidI : GetPossibleOccludingCuboids(B)) {
+			if (IsBlocking(B, Cuboids[CuboidI])) {
+				Blocked = true;
+				int MinI = ArgMin(CacheTimers[B.PlayerI][B.EnemyI], CUBOID_CACHE_SIZE);
+				CuboidCaches[B.PlayerI][B.EnemyI][MinI] = CuboidI;
+				CacheTimers[B.PlayerI][B.EnemyI][MinI] = TotalTicks;
+				break;
+			}
+		}
+		if (!Blocked) {
+			VisibilityTimers[B.PlayerI][B.EnemyI] += TimerIncrement;
+		}
+	}
 }
 
 void ACullingController::UpdateVisibility()
 {
+	for (int i = 0; i < Characters.Num(); i++) {
+		if (IsAlive[i]) {
+			for (int j = 0; j < Characters.Num(); j++) {
+				if (IsAlive[j] && (VisibilityTimers[i][j] > 0)) {
+					SendLocation(i, j);
+					VisibilityTimers[i][j] -= 1;
+				}
+			}
+		}
+	}
 }
 
-
-void ACullingController::ClearQueues()
+bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
-	
+	// Faces of the cuboid that are between the player and enemy.
+	TArray<Face> FacesBetween;
+	for (int i = 0; i < CUBOID_F; i++) {
+		Face F = OccludingCuboid.Faces[i];
+		FVector PlayerToFace = OccludingCuboid.GetVertex(i, 0) - Bounds[B.PlayerI].Center;
+		FVector EnemyToFace = OccludingCuboid.GetVertex(i, 0) - Bounds[B.EnemyI].Center;
+		if (
+			(FVector::DotProduct(PlayerToFace, F.Normal) < 0) &&
+			(FVector::DotProduct(EnemyToFace, F.Normal) > 0)
+		) {
+			// Try add later.
+			FacesBetween.Emplace(F);
+		}
+	}
+	if (FacesBetween.Num() > 0) {
+		// Array of planes defined by the player center and a non-duplicate
+		// edge from the perimeters of faces in FacesBetween.
+		// By the magic of consistent hand convention, all duplicate,
+		// interior edges (i, j) will have a pair of the form (j, i).
+		TArray<FPlane> ShadowFrustumPlanes;
+		for (Face F : FacesBetween) {
+			// Unrolled for speed. Could try optimizing further.
+			EdgeSet[F.Perimeter[0]][F.Perimeter[1]] = true;
+			EdgeSet[F.Perimeter[1]][F.Perimeter[2]] = true;
+			EdgeSet[F.Perimeter[2]][F.Perimeter[3]] = true;
+			EdgeSet[F.Perimeter[3]][F.Perimeter[0]] = true;
+		}
+		for (Face F : FacesBetween) {
+			if (!EdgeSet[F.Perimeter[1]][F.Perimeter[0]]) {
+				ShadowFrustumPlanes.Emplace(
+					FPlane(OccludingCuboid.Vertices[F.Perimeter[0]], F.Normal)
+				);
+			}
+			if (!EdgeSet[F.Perimeter[2]][F.Perimeter[1]]) {
+				ShadowFrustumPlanes.Emplace(
+					FPlane(OccludingCuboid.Vertices[F.Perimeter[1]], F.Normal)
+				);
+			}
+			if (!EdgeSet[F.Perimeter[3]][F.Perimeter[2]]) {
+				ShadowFrustumPlanes.Emplace(
+					FPlane(OccludingCuboid.Vertices[F.Perimeter[2]], F.Normal)
+				);
+			}
+			if (!EdgeSet[F.Perimeter[0]][F.Perimeter[3]]) {
+				ShadowFrustumPlanes.Emplace(
+					FPlane(OccludingCuboid.Vertices[F.Perimeter[3]], F.Normal)
+				);
+			}
+		}
+		for (FPlane P : ShadowFrustumPlanes) {
+			DrawDebugSolidPlane(GetWorld(), P, Bounds[B.EnemyI].Center, 10.f, FColor::Red, false, 1.f);
+		}
+		// Reset the edge set.
+		memset(EdgeSet, false, 64);
+	}
+	return false;
+}
+
+// Get all indices of cuboids that could block LOS between the player and enemy in the bundle.
+// Currently just returns all cuboids. I'll implement a bounding volume hierarchy soon.
+TArray<int> ACullingController::GetPossibleOccludingCuboids(Bundle B) {
+	TArray<int> Possible;
+	for (int i = 0; i < Cuboids.Num(); i++) {
+		Possible.Emplace(i);
+	}
+	return Possible;
+}
+
+// Send location of character j to character i.
+// Currently draw a line from character i to j.
+void ACullingController::SendLocation(int i, int j)
+{
+	ConnectVectors(
+		GetWorld(),
+		Bounds[i].Center + FVector(0, 0, -20),
+		Bounds[j].Center + FVector(0, 0, -10)
+	);
 }
 
 
@@ -89,7 +205,6 @@ void ACullingController::Cull() {
 	CullWithCache();
 	CullRemaining();
 	UpdateVisibility();
-	ClearQueues();
 }
 
 void ACullingController::BenchmarkCull() {

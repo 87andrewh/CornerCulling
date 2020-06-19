@@ -45,7 +45,7 @@ void AOccluder::BeginPlay()
 		T.TransformPosition(V6),
 		T.TransformPosition(V7),
 	};
-	OccludingCuboid = FCuboid(Vectors);
+	OccludingCuboid = Cuboid(Vectors);
 	DrawEdges(true);
 }
 
@@ -66,7 +66,7 @@ void AOccluder::Tick(float DeltaTime)
 		T.TransformPosition(V6),
 		T.TransformPosition(V7),
 	};
-	OccludingCuboid = FCuboid(Vectors);
+	OccludingCuboid = Cuboid(Vectors);
 	DrawEdges(false);
 }
 

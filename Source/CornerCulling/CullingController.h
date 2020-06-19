@@ -14,77 +14,77 @@
 # define CUBOID_F 6
 // Number of vertices in a face of a cuboid.
 # define CUBOID_FACE_V 4
-// Cuboid defined by 8 points in space.
-// TODO: Test cache alignment.
 
-USTRUCT()
-struct FCuboid {
-	GENERATED_BODY()
-	struct Face {
-		FVector Normal;
-		// Indexes of vertices that define the perimeter. Counter-clockwise from outside view.
-		unsigned char Perimeter [CUBOID_FACE_V];
-		Face() {}
-		// Faces are ordered
-		//	   .+---------+  
-		//	 .' |  0    .'|  
-		//	+---+-----+'  |  
-		//	|   |    3|   |  
-		//	| 4 |     | 2 |  
-		//	|   |1    |   |  
-		//	|  ,+-----+---+  
-		//	|.'    5  | .'   
-		//	+---------+'    
-		//	To reiterate, 1 is in front, and we continue counterclockwise.
-  		Face(int i, FCuboid* C) {
-  			switch (i) {
-  				case 0:
-  					Perimeter[0] = 0;
-  					Perimeter[1] = 1;
-  					Perimeter[2] = 2;
-					Perimeter[3] = 3;
-					break;
-				case 1:
-					Perimeter[0] = 2;
-					Perimeter[1] = 6;
-					Perimeter[2] = 7;
-					Perimeter[3] = 3;
-					break;
-				case 2:
-					Perimeter[0] = 0;
-					Perimeter[1] = 3;
-					Perimeter[2] = 7;
-					Perimeter[3] = 4;
-					break;
-				case 3:
-					Perimeter[0] = 0;
-					Perimeter[1] = 4;
-					Perimeter[2] = 5;
-					Perimeter[3] = 1;
-					break;
-				case 4:
-					Perimeter[0] = 1;
-					Perimeter[1] = 5;
-					Perimeter[2] = 6;
-					Perimeter[3] = 2;
-					break;
-				case 5:
-					Perimeter[0] = 4;
-					Perimeter[1] = 7;
-					Perimeter[2] = 6;
-					Perimeter[3] = 5;
-					break;
-			}
-			Normal = FVector::CrossProduct(
-				C->Vertices[Perimeter[1]] - C->Vertices[Perimeter[0]],
-				C->Vertices[Perimeter[2]] - C->Vertices[Perimeter[0]]
-			).GetSafeNormal(1e-6);
+// Four-sided face of a cuboid.
+struct Face {
+	FVector Normal;
+	// Indexes of vertices on the perimeter. Counter-clockwise from outside perspective.
+	unsigned char Perimeter [CUBOID_FACE_V];
+	Face() {}
+	// Faces are ordered
+	//	   .+---------+  
+	//	 .' |  0    .'|  
+	//	+---+-----+'  |  
+	//	|   |    3|   |  
+	//	| 4 |     | 2 |  
+	//	|   |1    |   |  
+	//	|  ,+-----+---+  
+	//	|.'    5  | .'   
+	//	+---------+'    
+	//	To reiterate, 1 is in front, and we continue counterclockwise.
+	Face(int i, FVector Vertices[]) {
+		switch (i) {
+			case 0:
+				Perimeter[0] = 0;
+				Perimeter[1] = 1;
+				Perimeter[2] = 2;
+				Perimeter[3] = 3;
+				break;
+			case 1:
+				Perimeter[0] = 2;
+
+				Perimeter[1] = 6;
+				Perimeter[2] = 7;
+				Perimeter[3] = 3;
+				break;
+			case 2:
+				Perimeter[0] = 0;
+				Perimeter[1] = 3;
+				Perimeter[2] = 7;
+				Perimeter[3] = 4;
+				break;
+			case 3:
+				Perimeter[0] = 0;
+				Perimeter[1] = 4;
+				Perimeter[2] = 5;
+				Perimeter[3] = 1;
+
+				break;
+			case 4:
+				Perimeter[0] = 1;
+				Perimeter[1] = 5;
+				Perimeter[2] = 6;
+				Perimeter[3] = 2;
+				break;
+			case 5:
+				Perimeter[0] = 4;
+				Perimeter[1] = 7;
+				Perimeter[2] = 6;
+				Perimeter[3] = 5;
+				break;
 		}
-	};
+		Normal = FVector::CrossProduct(
+			Vertices[Perimeter[1]] - Vertices[Perimeter[0]],
+			Vertices[Perimeter[2]] - Vertices[Perimeter[0]]
+		).GetSafeNormal(1e-6);
+	}
+};
+
+// Cuboid defined by 8 vertices.
+struct Cuboid {
 	Face Faces[CUBOID_F];
-	UPROPERTY(EditAnywhere)
 	FVector Vertices [CUBOID_V];
-	FCuboid () {}
+	Cuboid () {}
 	// Construct a cuboid from a list of vertices.
 	// vertices should be ordered
 	//	    .1------0
@@ -94,7 +94,7 @@ struct FCuboid {
 	//	 |  .5--+---4
 	//	 |.'    | .'
 	//	 6------7'
-	FCuboid(TArray<FVector> V) {
+	Cuboid(TArray<FVector> V) {
 		if (V.Num() != CUBOID_V) {
 			return;
 		}
@@ -102,7 +102,7 @@ struct FCuboid {
 			Vertices[i] = FVector(V[i]);
 		}
 		for (int i = 0; i < CUBOID_F; i++) {
-			Faces[i] = Face(i, this);
+			Faces[i] = Face(i, Vertices);
 		}
 	}
 	// Return the vertex on face i with perimeter index j.
@@ -111,14 +111,14 @@ struct FCuboid {
 	}
 };
 
-// Vertical infinite wall. Defined by two 2D points.
-struct ZWall {
-	FVector2D P1, P2;
-};
-
 // 3D Line segment. Defined by two points.
 struct Segment {
 	FVector Start, End;
+	Segment() {}
+	Segment(const FVector& V1, const FVector& V2) {
+		Start = V1;
+		End = V2;
+	}
 };
 
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
@@ -150,17 +150,31 @@ struct CharacterBounds {
 	CharacterBounds() {}
 };
 
-// Four positions that encompass the player's possible peeks on an enemy.
+// Four positions that encompass a player's possible peeks on an enemy.
 struct PossiblePeeks {
 	FVector TopLeft, TopRight, BottomLeft, BottomRight;
+	PossiblePeeks() {}
+	PossiblePeeks(
+		FVector PlayerLocation,
+	    FVector EnemyLocation,
+		float MaxDeltaHorizontal,
+		float MaxDeltaVertical
+	) {
+		FVector PlayerToEnemy = (EnemyLocation - PlayerLocation).GetSafeNormal(1e-6);
+		// Horizontal vector is parallel to the XY plane and is perpendicular to PlayerToEnemy.
+		FVector Horizontal = MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
+		FVector Vertical = FVector(0, 0, MaxDeltaVertical);
+		TopLeft = PlayerLocation + Horizontal + Vertical;
+		TopRight = PlayerLocation - Horizontal + Vertical;
+		BottomLeft = PlayerLocation + Horizontal - Vertical;
+		BottomRight = PlayerLocation - Horizontal - Vertical;
+	}
 };
 
 // Bundle representing all lines of sight between a player's possible peeks and an enemy's bounds.
 struct Bundle {
 	unsigned char PlayerI;
 	unsigned char EnemyI;
-	CharacterBounds* Bounds;
-	PossiblePeeks* Peeks;
 	Bundle(int i, int j) {
 		PlayerI = i;
 		EnemyI = j;
@@ -182,19 +196,34 @@ class ACullingController : public AInfo
 	// Bounding volumes of all characters.
 	TArray<CharacterBounds> Bounds;
 	// All occluding cuboids in the map.
-	TArray<FCuboid> OccludingCuboids;
 	// Cache of cuboids that recently blocked LOS from the first character to the second.
-	unsigned short CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
-	TArray<FCuboid> CuboidQueue;
+	int CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
+	// Timers that track the last time a cache element culled.
+	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
+	TArray<Cuboid> Cuboids;
 	TArray<Bundle> BundleQueue;
 	TArray<Bundle> BundleQueue2;
+	// Used to find duplicate edges when merging faces.
+	// Not perfectly space efficient, but fast and simple.
+	bool EdgeSet[CUBOID_V][CUBOID_V] =
+	{
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	};
+
 	// Stores how much longer the second character is visible to the first.
-	unsigned short VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
+	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	unsigned short TimerIncrement = 10;
+	int TimerIncrement = 10;
 	// Increase the increment when the server is under heavy load.
-	unsigned short LongTimerIncrement = 30;
+	int LongTimerIncrement = 30;
 
 	// How many frames pass between each cull.
 	int CullingPeriod = 4;
@@ -207,8 +236,8 @@ class ACullingController : public AInfo
 	int RollingLength = 4 * CullingPeriod;
 	// Total tick counter
 	int TotalTicks = 0;
-	// Store overall average culling time.
-	float TotalTime = 0;
+	// Store overall average culling time (in microseconds)
+	int TotalTime = 0;
 
 	// Update bounding volumes of characters according to their transformation.
 	// Can be changed to include changes in gun length.
@@ -225,12 +254,13 @@ class ACullingController : public AInfo
 	void ClearQueues();
 	// Check if a Cuboid blocks all lines of sight between a player's possible peeks and points in an enemy's bounding box,
 	// stored in a bundle.
-	bool CheckAllLOS(const Bundle& B, FCuboid& OccludingCuboid);
+	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
 
-	// On the plane normal to the line between a play and an enemy, get the locations of corners of the
-	// rectangle that encompasses all possible peeks.
-	// The Magnitude is ideally a function of culling period, server latency, player kinematics, and game events.
-	void GetPossiblePeeks(int PlayerI, int EnemyI, PossiblePeeks Possibilities);
+	// Get all indices of cuboids that could block LOS between the player and enemy in the bundle.
+	TArray<int> GetPossibleOccludingCuboids(Bundle B);
+
+	// Send location of character j to character i.
+	void SendLocation(int i, int j);
 
 protected:
 	void BeginPlay() override;
@@ -250,5 +280,17 @@ public:
 	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false) {
 		float Duration = 0.1f;
 		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, Duration, 0, 2.f);
+	}
+
+	static inline int ArgMin(int A[], int Length) {
+		int Min = INT_MAX;
+		int MinI = 0;
+		for (int i = 0; i < Length; i++) {
+			if (A[i] < Min) {
+				Min = A[i];
+				MinI = i;
+			}
+		}
+		return MinI;
 	}
 };

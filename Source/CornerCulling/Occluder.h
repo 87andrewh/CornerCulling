@@ -32,7 +32,7 @@ class AOccluder : public AActor
 
 public:	
 	AOccluder();
-	FCuboid OccludingCuboid;
+	Cuboid OccludingCuboid;
 
 protected:
 	// Draw the bounds of this occluder in the editor.
