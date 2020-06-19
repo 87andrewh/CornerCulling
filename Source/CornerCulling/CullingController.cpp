@@ -1,11 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CullingController.h"
-#include "EngineUtils.h"
 #include "CornerCullingCharacter.h"
 #include "Occluder.h"
-#include "Utils.h"
-#include "Math/UnrealMathUtility.h"
+#include "EngineUtils.h" // TActorRange
 #include <chrono> 
 
 ACullingController::ACullingController()
@@ -29,7 +27,7 @@ void ACullingController::BeginPlay()
     for (AOccluder* Occluder : TActorRange<AOccluder>(GetWorld()))
     {
 		// Try profiling emplace.
-		Cuboids.Add(Occluder->OccludingCuboid);
+		Cuboids.Emplace(Cuboid(Occluder->Vectors));
     }
 }
 
@@ -47,6 +45,9 @@ void ACullingController::PopulateBundles()
 {
 	BundleQueue.Reset();
 	for (int i = 0; i < Characters.Num(); i++) {
+		// TESTING
+		if (i == 0) { continue; }
+		// END TESTING
 		if (IsAlive[i]) {
 			int TeamI = Characters[i]->Team;
 			for (int j = 0; j < Characters.Num(); j++) {
@@ -111,12 +112,19 @@ void ACullingController::UpdateVisibility()
 
 bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
-	// Faces of the cuboid that are between the player and enemy.
+	bool blocked = false;
+	// Faces of the cuboid that are between the player and enemy
+	// and have a normal pointing toward the player--thus skipping back faces.
 	TArray<Face> FacesBetween;
+	FVector& PlayerCenter = Bounds[B.PlayerI].Center;
+	FVector& EnemyCenter = Bounds[B.EnemyI].Center;
+	float EnemyInnerRadius = Bounds[B.EnemyI].InnerRadius;
+	float EnemyOuterRadius = Bounds[B.EnemyI].OuterRadius;
 	for (int i = 0; i < CUBOID_F; i++) {
-		Face F = OccludingCuboid.Faces[i];
-		FVector PlayerToFace = OccludingCuboid.GetVertex(i, 0) - Bounds[B.PlayerI].Center;
-		FVector EnemyToFace = OccludingCuboid.GetVertex(i, 0) - Bounds[B.EnemyI].Center;
+		Face& F = OccludingCuboid.Faces[i];
+		FVector FaceV = OccludingCuboid.GetVertex(i, 0);
+		FVector PlayerToFace = FaceV - PlayerCenter;
+		FVector EnemyToFace = FaceV - EnemyCenter;
 		if (
 			(FVector::DotProduct(PlayerToFace, F.Normal) < 0) &&
 			(FVector::DotProduct(EnemyToFace, F.Normal) > 0)
@@ -131,42 +139,110 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 		// By the magic of consistent hand convention, all duplicate,
 		// interior edges (i, j) will have a pair of the form (j, i).
 		TArray<FPlane> ShadowFrustumPlanes;
-		for (Face F : FacesBetween) {
+		for (Face& F : FacesBetween) {
 			// Unrolled for speed. Could try optimizing further.
 			EdgeSet[F.Perimeter[0]][F.Perimeter[1]] = true;
 			EdgeSet[F.Perimeter[1]][F.Perimeter[2]] = true;
 			EdgeSet[F.Perimeter[2]][F.Perimeter[3]] = true;
 			EdgeSet[F.Perimeter[3]][F.Perimeter[0]] = true;
 		}
-		for (Face F : FacesBetween) {
-			if (!EdgeSet[F.Perimeter[1]][F.Perimeter[0]]) {
-				ShadowFrustumPlanes.Emplace(
-					FPlane(OccludingCuboid.Vertices[F.Perimeter[0]], F.Normal)
+		for (Face& F : FacesBetween) {
+			// Indices of vertices of the face.
+			int V0 = F.Perimeter[0];
+			int V1 = F.Perimeter[1];
+			int V2 = F.Perimeter[2];
+			int V3 = F.Perimeter[3];
+			// If the reverse edge is not present, then it boarders
+			// the surface formed by combining all relevant faces.
+			// Thus it defines a plane of the shadow frustum.
+			if (!EdgeSet[V1][V0]) {
+				FVector u = OccludingCuboid.Vertices[V0] + FVector(0, 0, 10);
+				FVector v = OccludingCuboid.Vertices[V1] + FVector(0, 0, 10);
+				DrawDebugDirectionalArrow(GetWorld(), u, v, 100.f, FColor::Red, false, 0.2f);
+				ShadowFrustumPlanes.Emplace(FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V0],
+					OccludingCuboid.Vertices[V1]
+				));
+				FPlane P = FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V0],
+					OccludingCuboid.Vertices[V1]
 				);
+				FVector Start = (OccludingCuboid.Vertices[V0] + OccludingCuboid.Vertices[V1])/2;
+				DrawDebugDirectionalArrow(GetWorld(), Start, Start + 100 * P, 100.f, FColor::Red, false, 0.2f);
 			}
-			if (!EdgeSet[F.Perimeter[2]][F.Perimeter[1]]) {
-				ShadowFrustumPlanes.Emplace(
-					FPlane(OccludingCuboid.Vertices[F.Perimeter[1]], F.Normal)
+			if (!EdgeSet[V2][V1]) {
+				FVector u = OccludingCuboid.Vertices[V1] + FVector(0, 0, 10);
+				FVector v = OccludingCuboid.Vertices[V2] + FVector(0, 0, 10);
+				DrawDebugDirectionalArrow(GetWorld(), u, v, 100.f, FColor::Red, false, 0.2f);
+				ShadowFrustumPlanes.Emplace(FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V1],
+					OccludingCuboid.Vertices[V2]
+				));
+				FPlane P = FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V1],
+					OccludingCuboid.Vertices[V2]
 				);
+				FVector Start = (OccludingCuboid.Vertices[V1] + OccludingCuboid.Vertices[V2])/2;
+				DrawDebugDirectionalArrow(GetWorld(), Start, Start + 100 * P, 100.f, FColor::Red, false, 0.2f);
 			}
-			if (!EdgeSet[F.Perimeter[3]][F.Perimeter[2]]) {
-				ShadowFrustumPlanes.Emplace(
-					FPlane(OccludingCuboid.Vertices[F.Perimeter[2]], F.Normal)
+			if (!EdgeSet[V3][V2]) {
+				FVector u = OccludingCuboid.Vertices[V2] + FVector(0, 0, 10);
+				FVector v = OccludingCuboid.Vertices[V3] + FVector(0, 0, 10);
+				DrawDebugDirectionalArrow(GetWorld(), u, v, 100.f, FColor::Red, false, 0.2f);
+				ShadowFrustumPlanes.Emplace(FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V2],
+					OccludingCuboid.Vertices[V3]
+				));
+				FPlane P = FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V2],
+					OccludingCuboid.Vertices[V3]
 				);
+				FVector Start = (OccludingCuboid.Vertices[V2] + OccludingCuboid.Vertices[V3])/2;
+				DrawDebugDirectionalArrow(GetWorld(), Start, Start + 100 * P, 100.f, FColor::Red, false, 0.2f);
 			}
-			if (!EdgeSet[F.Perimeter[0]][F.Perimeter[3]]) {
-				ShadowFrustumPlanes.Emplace(
-					FPlane(OccludingCuboid.Vertices[F.Perimeter[3]], F.Normal)
+			if (!EdgeSet[V0][V3]) {
+				FVector u = OccludingCuboid.Vertices[V3] + FVector(0, 0, 10);
+				FVector v = OccludingCuboid.Vertices[V0] + FVector(0, 0, 10);
+				DrawDebugDirectionalArrow(GetWorld(), u, v, 100.f, FColor::Red, false, 0.2f);
+				ShadowFrustumPlanes.Emplace(FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V3],
+					OccludingCuboid.Vertices[V0]
+				));
+				FPlane P = FPlane(
+					PlayerCenter,
+					OccludingCuboid.Vertices[V3],
+					OccludingCuboid.Vertices[V0]
 				);
+				FVector Start = (OccludingCuboid.Vertices[V0] + OccludingCuboid.Vertices[V3])/2;
+				DrawDebugDirectionalArrow(GetWorld(), Start, Start + 100 * P, 100.f, FColor::Red, false, 0.2f);
 			}
 		}
-		for (FPlane P : ShadowFrustumPlanes) {
-			DrawDebugSolidPlane(GetWorld(), P, Bounds[B.EnemyI].Center, 10.f, FColor::Red, false, 1.f);
+		int i = 10;
+		//GEngine->AddOnScreenDebugMessage(9, 0.25f, FColor::Yellow, FString::FromInt(ShadowFrustumPlanes.Num()), true, FVector2D(1.5f, 1.5f));
+		for (FPlane& P : ShadowFrustumPlanes) {
+			// Signed distance from enemy to plane. The direction of the plane's normal vector is positive.
+			float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
+			GEngine->AddOnScreenDebugMessage(i++, 0.25f, FColor::Yellow, FString::SanitizeFloat(EnemyDistanceToPlane), true, FVector2D(1.5f, 1.5f));
+			if (EnemyDistanceToPlane > EnemyOuterRadius) {
+				continue;
+			} else if (EnemyDistanceToPlane < EnemyInnerRadius) {
+				blocked = false;
+			} else {
+				GEngine->AddOnScreenDebugMessage(6, 0.25f, FColor::Yellow, "REEEE", true, FVector2D(1.5f, 1.5f));
+			}
 		}
+		blocked = true;
 		// Reset the edge set.
 		memset(EdgeSet, false, 64);
 	}
-	return false;
+	return blocked;
 }
 
 // Get all indices of cuboids that could block LOS between the player and enemy in the bundle.
@@ -211,6 +287,7 @@ void ACullingController::BenchmarkCull() {
 	auto Start = std::chrono::high_resolution_clock::now();
 	Cull();
 	auto Stop = std::chrono::high_resolution_clock::now();
+	DrawDebugSphere(GetWorld(), Bounds[0].Center, Bounds[0].OuterRadius, 20, FColor::Red, false, 0.f);
 	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
 	TotalTime += Delta;
 	RollingTotalTime += Delta;

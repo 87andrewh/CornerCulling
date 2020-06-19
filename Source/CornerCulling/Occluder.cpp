@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Engine/BrushBuilder.h"
 #include "Occluder.h"
 
 AOccluder::AOccluder()
@@ -35,16 +34,15 @@ void AOccluder::BeginPlay()
 	FlushPersistentDebugLines(GetWorld());
 
 	FTransform T = GetTransform();
-	TArray<FVector> Vectors = { 
-		T.TransformPosition(V0),
-		T.TransformPosition(V1),
-		T.TransformPosition(V2),
-		T.TransformPosition(V3),
-		T.TransformPosition(V4),
-		T.TransformPosition(V5),
-		T.TransformPosition(V6),
-		T.TransformPosition(V7),
-	};
+	Vectors.Reset();
+	Vectors.Emplace(T.TransformPosition(V0));
+	Vectors.Emplace(T.TransformPosition(V1));
+	Vectors.Emplace(T.TransformPosition(V2));
+	Vectors.Emplace(T.TransformPosition(V3));
+	Vectors.Emplace(T.TransformPosition(V4));
+	Vectors.Emplace(T.TransformPosition(V5));
+	Vectors.Emplace(T.TransformPosition(V6));
+	Vectors.Emplace(T.TransformPosition(V7));
 	OccludingCuboid = Cuboid(Vectors);
 	DrawEdges(true);
 }
@@ -56,16 +54,15 @@ void AOccluder::Tick(float DeltaTime)
 		return;
 	}
 	FTransform T = GetTransform();
-	TArray<FVector> Vectors = { 
-		T.TransformPosition(V0),
-		T.TransformPosition(V1),
-		T.TransformPosition(V2),
-		T.TransformPosition(V3),
-		T.TransformPosition(V4),
-		T.TransformPosition(V5),
-		T.TransformPosition(V6),
-		T.TransformPosition(V7),
-	};
+	Vectors.Reset();
+	Vectors.Emplace(T.TransformPosition(V0));
+	Vectors.Emplace(T.TransformPosition(V1));
+	Vectors.Emplace(T.TransformPosition(V2));
+	Vectors.Emplace(T.TransformPosition(V3));
+	Vectors.Emplace(T.TransformPosition(V4));
+	Vectors.Emplace(T.TransformPosition(V5));
+	Vectors.Emplace(T.TransformPosition(V6));
+	Vectors.Emplace(T.TransformPosition(V7));
 	OccludingCuboid = Cuboid(Vectors);
 	DrawEdges(false);
 }

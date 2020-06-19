@@ -2,10 +2,8 @@
 
 #pragma once
 #include "CoreMinimal.h"
-#include "EngineMinimal.h"
 #include "CornerCullingCharacter.h"
 #include "GameFramework/Info.h"
-#include "Math/UnrealMathUtility.h"
 #include "DrawDebugHelpers.h"
 #include "CullingController.generated.h"
 
@@ -78,6 +76,13 @@ struct Face {
 			Vertices[Perimeter[2]] - Vertices[Perimeter[0]]
 		).GetSafeNormal(1e-6);
 	}
+	Face(const Face& F) {
+		Perimeter[0] = F.Perimeter[0];
+		Perimeter[1] = F.Perimeter[1];
+		Perimeter[2] = F.Perimeter[2];
+		Perimeter[3] = F.Perimeter[3];
+		Normal = FVector(F.Normal);
+	}
 };
 
 // Cuboid defined by 8 vertices.
@@ -105,6 +110,15 @@ struct Cuboid {
 			Faces[i] = Face(i, Vertices);
 		}
 	}
+	// Copy constructor.
+	Cuboid(const Cuboid& C) {
+		for (int i = 0; i < CUBOID_V; i++) {
+			Vertices[i] = FVector(C.Vertices[i]);
+		}
+		for (int i = 0; i < CUBOID_F; i++) {
+			Faces[i] = Face(C.Faces[i]);
+		}
+	}
 	// Return the vertex on face i with perimeter index j.
 	FVector GetVertex(int i, int j) {
 		return Vertices[Faces[i].Perimeter[j]];
@@ -124,9 +138,14 @@ struct Segment {
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
 // If the sphere is only partially occluded, then check against all tight bounding points.
 struct CharacterBounds {
+	// Center of bounding spheres.
 	FVector Center;
-	// Center of bounding sphere
-	float Radius = 20;
+	// Sphere that circumscribes the bounding box.
+	// Can quickly determine if the entire bounding box is occluded.
+	float OuterRadius = 105;
+	// Sphere that inscribes the bounding box.
+	// Can quickly determine if some of the bounding box is exposed.
+	float InnerRadius = 16;
 	// Divide vertices to skip the bottom half when a payer peeks it from above and vice versa.
 	// This halves the work, but can over-cull if the bottom edge of an enemy is not aligned with the top
 	// and that bottom edge would stick out out when peeking over a chamfered wall.
@@ -250,8 +269,6 @@ class ACullingController : public AInfo
 	void CullRemaining();
 	// For all players, update the visibility of their enemies.
 	void UpdateVisibility();
-	// Clear all queues for next culling cycle.
-	void ClearQueues();
 	// Check if a Cuboid blocks all lines of sight between a player's possible peeks and points in an enemy's bounding box,
 	// stored in a bundle.
 	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
@@ -277,9 +294,8 @@ public:
 	}
 	
 	// Draw a line between two vectors. For debugging.	
-	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false) {
-		float Duration = 0.1f;
-		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, Duration, 0, 2.f);
+	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false, float Thickness = 2.f) {
+		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, 0.1f, 0, Thickness);
 	}
 
 	static inline int ArgMin(int A[], int Length) {

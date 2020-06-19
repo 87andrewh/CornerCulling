@@ -11,7 +11,8 @@
 class AOccluder : public AActor
 {
 	GENERATED_BODY()
-	
+
+public:	
 	//  Vectors that define the vertices of the cuboid.
 	UPROPERTY(EditAnywhere)
 	FVector V0 = FVector(200, 200, 200);
@@ -30,8 +31,11 @@ class AOccluder : public AActor
 	UPROPERTY(EditAnywhere)
 	FVector V7 = FVector(200, -200, -200);
 
-public:	
 	AOccluder();
+	// Vertices of an occluding cuboid.
+	UPROPERTY()
+	TArray<FVector> Vectors;
+	// The occluding cuboid.
 	Cuboid OccludingCuboid;
 
 protected:
