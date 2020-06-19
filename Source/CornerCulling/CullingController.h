@@ -120,7 +120,7 @@ struct Cuboid {
 		}
 	}
 	// Return the vertex on face i with perimeter index j.
-	FVector GetVertex(int i, int j) {
+	FVector GetVertex(int i, int j) const {
 		return Vertices[Faces[i].Perimeter[j]];
 	}
 };
@@ -138,7 +138,9 @@ struct Segment {
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
 // If the sphere is only partially occluded, then check against all tight bounding points.
 struct CharacterBounds {
-	// Center of bounding spheres.
+	// Location of character's camera.
+	FVector CameraLocation;
+	// Center of character and bounding spheres.
 	FVector Center;
 	// Sphere that circumscribes the bounding box.
 	// Can quickly determine if the entire bounding box is occluded.
@@ -155,7 +157,8 @@ struct CharacterBounds {
 	TArray<FVector> TopVertices;
 	// Vertices in bottom half of the bounding volume.
 	TArray<FVector> BottomVertices;
-	CharacterBounds(FTransform T) {
+	CharacterBounds(FVector CL, FTransform T) {
+		CameraLocation = CL;
 		Center = T.GetTranslation();
 		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, 100)));
 		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, 100)));
@@ -240,7 +243,7 @@ class ACullingController : public AInfo
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int TimerIncrement = 10;
+	int TimerIncrement = 5;
 	// Increase the increment when the server is under heavy load.
 	int LongTimerIncrement = 30;
 
@@ -269,6 +272,28 @@ class ACullingController : public AInfo
 	void CullRemaining();
 	// For all players, update the visibility of their enemies.
 	void UpdateVisibility();
+	// Get all faces that sit between a player and an enemy and have a normal pointing outward
+	// toward the player, thus skipping redundant back faces.
+	void GetFacesBetween(const FVector& PlayerCameraLocation, const FVector& EnemyCenter, const Cuboid& OccludingCuboid, TArray<Face>& FacesBetween);
+
+	// Get the shadow frustum. Given a point light shining on a polyhedron,
+	// the shadow frustum is comprised of all planes bordering the dark region.
+	// Formally, the shadow frustum is comprised of all planes defined by the
+	// player camera location and two endpoints of a perimeter edge of the
+	// surface formed by connecting all player-facing planes between a player
+	// camera and an enemy.
+	//              /--       
+	//           /--           
+	//        /-+-------+             
+	//     /--  |       |     
+	//  P--     |       |   E   
+	//     \--  |       |             
+	//        \-+-------+            
+	//           \--           
+	//              \--      
+	// 2D example. P for player camera, E for enemy.
+	void GetShadowFrustum(const FVector& PlayerCameraLocation, const Cuboid& OccludingCuboid, const TArray<Face>& FacesBetween, TArray<FPlane>& ShadowFrustum);
+
 	// Check if a Cuboid blocks all lines of sight between a player's possible peeks and points in an enemy's bounding box,
 	// stored in a bundle.
 	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
@@ -295,7 +320,7 @@ public:
 	
 	// Draw a line between two vectors. For debugging.	
 	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false, float Thickness = 2.f) {
-		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, 0.1f, 0, Thickness);
+		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, 0.01f, 0, Thickness);
 	}
 
 	static inline int ArgMin(int A[], int Length) {
