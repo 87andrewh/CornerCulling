@@ -31,6 +31,50 @@ void ACullingController::BeginPlay()
     }
 }
 
+void ACullingController::BenchmarkCull() {
+	auto Start = std::chrono::high_resolution_clock::now();
+	Cull();
+	auto Stop = std::chrono::high_resolution_clock::now();
+	SendLocations();
+	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
+	TotalTime += Delta;
+	RollingTotalTime += Delta;
+	RollingMaxTime = std::max(RollingMaxTime, Delta);
+	if ((TotalTicks % RollingWindowLength) == 0) {
+		RollingAverageTime = RollingTotalTime / RollingWindowLength;
+		if (GEngine) {
+			// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
+			// Make sure that multiple servers are staggered so these spikes do not add up.
+			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
+			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
+			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
+			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		}
+		if (RollingMaxTime > TimerLoadThreshold) {
+			TimerIncrement = MaxTimerIncrement;
+		}
+		else {
+			TimerIncrement = MinTimerIncrement;
+		}
+		RollingTotalTime = 0;
+		RollingMaxTime = 0;
+	}
+}
+
+void ACullingController::Cull() {
+	if ((TotalTicks % CullingPeriod) == 0) {
+		UpdateCharacterBounds();
+		PopulateBundles();
+		CullWithCache();
+		CullRemaining();
+	}
+	// Moved to BenchMarkCull so that drawing debug lines does not add
+	// to runtime statistics.
+	// SendLocations();
+}
+
 void ACullingController::UpdateCharacterBounds()
 {
 	Bounds.Reset();
@@ -230,9 +274,11 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 	// Marks if we have to check visibility with the enemy bounding box
 	// on a peek because bounding sphere checks were inconclusive.
 	bool CheckBox[NUM_PEEKS] = { false };
+	// For every peek:
 	for (int i = 0; i < NUM_PEEKS; i++) {
 		// TODO: Check if this line is necessary.
 		TArray<Face> FacesBetween;
+		// Get forward faces, which define the shadow frustum.
 		GetFacesBetween(Peeks[i], EnemyBounds.Center, OccludingCuboid, FacesBetween);
 		if (FacesBetween.Num() > 0) {
 			GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
@@ -250,10 +296,10 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 				// so the enemy must be revealed through this plane.
 				} else if (EnemyDistanceToPlane < EnemyInnerRadius) {
 					return false;
-				// Inconclusive. Use the bounding box for an accurate test.
+				// Inconclusive. Use the bounding box to accurately test
+				// if peek i reveals the enemy.
 				} else {
 					CheckBox[i] = true;
-					break;
 				}
 			}
 		// There are no faces between the player and enemy.
@@ -279,6 +325,9 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 	return true;
 }
 
+// Check if all points are in the frustum defined by the planes,
+// which occurs when no point is on the same side of a plane
+// as its normal vector.
 bool ACullingController::InFrustum(
 	const TArray<FVector>& Points,
 	const TArray<FPlane>& Planes
@@ -342,47 +391,4 @@ void ACullingController::Tick(float DeltaTime)
 	BenchmarkCull();
 }
 
-void ACullingController::Cull() {
-	if ((TotalTicks % CullingPeriod) == 0) {
-		UpdateCharacterBounds();
-		PopulateBundles();
-		CullWithCache();
-		CullRemaining();
-	}
-	// Moved to BenchMarkCull so that drawing debug lines does not add
-	// to runtime statistics.
-	// SendLocations();
-}
-
-void ACullingController::BenchmarkCull() {
-	auto Start = std::chrono::high_resolution_clock::now();
-	Cull();
-	auto Stop = std::chrono::high_resolution_clock::now();
-	SendLocations();
-	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
-	TotalTime += Delta;
-	RollingTotalTime += Delta;
-	RollingMaxTime = std::max(RollingMaxTime, Delta);
-	if ((TotalTicks % RollingWindowLength) == 0) {
-		RollingAverageTime = RollingTotalTime / RollingWindowLength;
-		if (GEngine) {
-			// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
-			// Make sure that multiple servers are staggered so these spikes do not add up.
-			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		}
-		if (RollingMaxTime > TimerLoadThreshold) {
-			TimerIncrement = MaxTimerIncrement;
-		}
-		else {
-			TimerIncrement = MinTimerIncrement;
-		}
-		RollingTotalTime = 0;
-		RollingMaxTime = 0;
-	}
-}
 
