@@ -209,10 +209,16 @@ class ACullingController : public AInfo
 {
 	GENERATED_BODY()
 
+	// Maximum number of characters in a game.
 	#define MAX_CHARACTERS 12
+	// Number of cuboids in each entry of the cuboid cache array.
 	#define CUBOID_CACHE_SIZE 3
+	// Keeps track of playable characters.
 	TArray<ACornerCullingCharacter*> Characters;
+	// Tracks if each character is alive.
 	TArray<bool> IsAlive;
+	// Tracks team of each character.
+	TArray<char> Teams;
 	// Bounding volumes of all characters.
 	TArray<CharacterBounds> Bounds;
 	// Cache of cuboids that recently blocked LOS from one character to another.

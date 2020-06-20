@@ -22,7 +22,7 @@ void AOccluder::DrawEdges(bool Persist = false) {
 				OccludingCuboid.GetVertex(i, j),
 				OccludingCuboid.GetVertex(i, (j + 1) % CUBOID_FACE_V),
 				Persist,
-				5,
+				7,
 				3,
 				FColor::Black
 			);

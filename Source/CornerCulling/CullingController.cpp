@@ -22,6 +22,7 @@ void ACullingController::BeginPlay()
     {
 		Characters.Add(Player);
 		IsAlive.Emplace(true);
+		Teams.Emplace(Player->Team);
     }
 	// Acquire the prisms of occluding objects.
     for (AOccluder* Occluder : TActorRange<AOccluder>(GetWorld()))
@@ -48,12 +49,11 @@ void ACullingController::PopulateBundles()
 	BundleQueue.Reset();
 	for (int i = 0; i < Characters.Num(); i++) {
 		if (IsAlive[i]) {
-			int TeamI = Characters[i]->Team;
 			for (int j = 0; j < Characters.Num(); j++) {
 				if (VisibilityTimers[i][j] > 0) {
 					VisibilityTimers[i][j]--;
 				}
-				if (IsAlive[j] && (TeamI != Characters[j]->Team) && (VisibilityTimers[i][j] == 0)) {
+				if (IsAlive[j] && (Teams[i] != Teams[j]) && (VisibilityTimers[i][j] == 0)) {
 					BundleQueue.Emplace(Bundle(i, j));
 				}
 			}
@@ -94,7 +94,11 @@ void ACullingController::CullRemaining()
 			}
 		}
 		if (!Blocked) {
-			VisibilityTimers[B.PlayerI][B.EnemyI] += TimerIncrement;
+			// Random offset spreads out culling when all characters become visible
+			// to each other at the same time, such as when a smoke fades.
+			VisibilityTimers[B.PlayerI][B.EnemyI] = (
+				TimerIncrement + (FMath::Rand() % 2)
+			);
 		}
 	}
 }
@@ -219,14 +223,13 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 		PlayerCameraLocation,
 		EnemyBounds.Center, 
 		20.0f,
-		10.0f
+		5.0f
 	).Corners;
 	// Shadow frustum for each possible peek.
 	TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
 	// Marks if we have to check visibility with the enemy bounding box
 	// on a peek because bounding sphere checks were inconclusive.
 	bool CheckBox[NUM_PEEKS] = { false };
-	char NumExposed = 0;
 	for (int i = 0; i < NUM_PEEKS; i++) {
 		// TODO: Check if this line is necessary.
 		TArray<Face> FacesBetween;
@@ -319,8 +322,8 @@ void ACullingController::SendLocations()
 // TODO: Integrate server location-sending API when deploying to a game.
 void ACullingController::SendLocation(int i, int j)
 {
-	// Only draw lines from team 0 to 1;
-	if (Characters[i]->Team -= 0) {
+	// Only draw sight lines of team 0.
+	if (Teams[i] == 0) {
 		ConnectVectors(
 			GetWorld(),
 			Bounds[i].Center + FVector(0, 0, 10),
