@@ -27,7 +27,7 @@ class ACornerCullingCharacter : public ACharacter
 	class USceneComponent* FP_MuzzleLocation;
 
 	/** Gun mesh: VR view (attached to the VR controller directly, no arm, just the actual gun) */
-	UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+	UPROPERTY(VisibleAnywhere, Category = Mesh)
 	class USkeletalMeshComponent* VR_Gun;
 
 	/** Location on VR gun mesh where projectiles should spawn. */
@@ -38,13 +38,48 @@ class ACornerCullingCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FirstPersonCameraComponent;
 
-public:
-	ACornerCullingCharacter();
-
 protected:
 	virtual void BeginPlay();
 
+	/** Fires a projectile. */
+	void OnFire();
+
+	/** Handles moving forward/backward */
+	void MoveForward(float Val);
+
+	/** Handles strafing movement, left and right */
+	void MoveRight(float Val);
+
+	/**
+	 * Called via input to turn at a given rate.
+	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	 */
+	void TurnAtRate(float Rate);
+
+	/**
+	 * Called via input to turn look up/down at a given rate.
+	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	 */
+	void LookUpAtRate(float Rate);
+
+	// APawn interface
+	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+	// End of APawn interface
+
 public:
+	ACornerCullingCharacter();
+
+	// Team Number
+	UPROPERTY(EditAnywhere)
+	int Team;
+
+	// Tracks if this character is controlled in the demo.
+	// TODO: Remove when integrating to game.
+	UPROPERTY(EditAnywhere)
+	bool IsDemoCharacter = false;
+
+	int TickCount = 0;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -61,35 +96,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	class UAnimMontage* FireAnimation;
 
-protected:
-
-	/** Fires a projectile. */
-	void OnFire();
-
-	/** Handles moving forward/backward */
-	void MoveForward(float Val);
-
-	/** Handles stafing movement, left and right */
-	void MoveRight(float Val);
-
-	/**
-	 * Called via input to turn at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void TurnAtRate(float Rate);
-
-	/**
-	 * Called via input to turn look up/down at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void LookUpAtRate(float Rate);
-
-protected:
-	// APawn interface
-	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
-	// End of APawn interface
-
-public:
 	/** Do something on each game tick **/
 	virtual void Tick(float DeltaTime) override;
 	
@@ -97,10 +103,4 @@ public:
 	FORCEINLINE class USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
-	FVector GetCameraLocation();
-
-	// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
-	// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
-	// plyaer maximum speed, player maximum velocity, and location-modifying game events.
-	void GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& PerpendicularPlayerDisplacement);
 };

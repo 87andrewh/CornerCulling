@@ -1,14 +1,12 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "CornerCullingCharacter.h"
-#include "CornerCullingProjectile.h"
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
-#include "Utils.h"
 #include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
@@ -17,10 +15,11 @@ DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 // ACornerCullingCharacter
 
 ACornerCullingCharacter::ACornerCullingCharacter()
-{
+{	
+	PrimaryActorTick.bCanEverTick = true;
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
-
 	// set our turn rates for input
 	BaseTurnRate = 0.1886f;
 	BaseLookUpRate = 0.1886f;
@@ -152,23 +151,11 @@ void ACornerCullingCharacter::LookUpAtRate(float Rate)
 // Called every frame
 void ACornerCullingCharacter::Tick(float DeltaTime)
 {
+	TickCount++;
 	Super::Tick(DeltaTime);
-}
-
-FVector ACornerCullingCharacter::GetCameraLocation()
-{
-	return GetFirstPersonCameraComponent()->GetComponentLocation();
-}
-
-// Get maximum displacement along axis perpendicular to PlayerToEnemy between culling events.
-// The Magnitude is ideally a function of culling period, server latency, player maximum acceleration,
-// plyaer maximum speed, player maximum velocity, and location-modifying game events.
-void ACornerCullingCharacter::GetPerpendicularDisplacement(const FVector2D& PlayerToEnemy, FVector2D& Displacement) {
-	float Distance = PlayerToEnemy.Size();
-	if (abs(Distance) < Utils::MIN_SAFE_LENGTH) {
-		Displacement = FVector2D::ZeroVector;
+	// Move randomly if we are not a controlled demo character.
+	if (!IsDemoCharacter && ((TickCount % 5) == 0)) {
+		FVector Offset = 20 * FVector(0.6f - FMath::FRand(), 0.6f - FMath::FRand(), 0);
+		AddActorWorldOffset(Offset);
 	}
-	// I said ideally.
-	float Magnitude = 20;
-	Displacement = FVector2D(-PlayerToEnemy.Y, PlayerToEnemy.X) * (Magnitude / Distance);
 }
