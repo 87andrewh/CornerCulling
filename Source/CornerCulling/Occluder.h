@@ -10,10 +10,16 @@
  UCLASS(BlueprintType, Blueprintable)
 class AOccluder : public AActor
 {
-	GENERATED_BODY()
+	 GENERATED_BODY()
+
+	// Counts ticks to not cull every tick.
+	int TickCount = 0;
+	// Frames between draw calls.
+	int DrawPeriod = 500;
 
 public:	
-	//  Vectors that define the vertices of the cuboid.
+	// Vectors that define the vertices of the cuboid.
+	// These are not in a list to enabled editing in UE4.
 	UPROPERTY(EditAnywhere)
 	FVector V0 = FVector(200, 200, 200);
 	UPROPERTY(EditAnywhere)
@@ -34,9 +40,12 @@ public:
 	AOccluder();
 	// Vertices of an occluding cuboid.
 	UPROPERTY()
-	TArray<FVector> Vectors;
+	TArray<FVector> Vectors = TArray<FVector>();
 	// The occluding cuboid.
 	Cuboid OccludingCuboid;
+
+	// Update OccludingCuboid according to the vertices.
+	void UpdateCuboid();
 
 protected:
 	// Draw the bounds of this occluder in the editor.

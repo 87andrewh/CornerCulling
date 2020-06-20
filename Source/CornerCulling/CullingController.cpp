@@ -20,20 +20,19 @@ void ACullingController::BeginPlay()
 
     for (ACornerCullingCharacter* Player : TActorRange<ACornerCullingCharacter>(GetWorld()))
     {
-		Characters.Emplace(Player);
+		Characters.Add(Player);
 		IsAlive.Emplace(true);
     }
 	// Acquire the prisms of occluding objects.
     for (AOccluder* Occluder : TActorRange<AOccluder>(GetWorld()))
     {
-		// Try profiling emplace.
-		Cuboids.Emplace(Cuboid(Occluder->Vectors));
+		Cuboids.Add(Cuboid(Occluder->Vectors));
     }
 }
 
 void ACullingController::UpdateCharacterBounds()
 {
-	Bounds.Reset(Characters.Num());
+	Bounds.Reset();
 	for (int i = 0; i < Characters.Num(); i++) {
 		if (IsAlive[i]) {
 			Bounds.Emplace(CharacterBounds(
@@ -48,11 +47,12 @@ void ACullingController::PopulateBundles()
 {
 	BundleQueue.Reset();
 	for (int i = 0; i < Characters.Num(); i++) {
-		if (i != 1) 
-			continue;
 		if (IsAlive[i]) {
 			int TeamI = Characters[i]->Team;
 			for (int j = 0; j < Characters.Num(); j++) {
+				if (VisibilityTimers[i][j] > 0) {
+					VisibilityTimers[i][j]--;
+				}
 				if (IsAlive[j] && (TeamI != Characters[j]->Team) && (VisibilityTimers[i][j] == 0)) {
 					BundleQueue.Emplace(Bundle(i, j));
 				}
@@ -68,7 +68,6 @@ void ACullingController::CullWithCache()
 		bool Blocked = false;
 		for (int k = 0; k < CUBOID_CACHE_SIZE; k++) {
 			if (IsBlocking(B, Cuboids[CuboidCaches[B.PlayerI][B.EnemyI][k]])) {
-				GEngine->AddOnScreenDebugMessage(6, 0.25f, FColor::Yellow, "EEEEE", true, FVector2D(1.5f, 1.5f));
 				Blocked = true;
 				CacheTimers[B.PlayerI][B.EnemyI][k] = TotalTicks;
 				break;
@@ -99,21 +98,6 @@ void ACullingController::CullRemaining()
 		}
 	}
 }
-
-void ACullingController::UpdateVisibility()
-{
-	for (int i = 0; i < Characters.Num(); i++) {
-		if (IsAlive[i]) {
-			for (int j = 0; j < Characters.Num(); j++) {
-				if (IsAlive[j] && (VisibilityTimers[i][j] > 0)) {
-					SendLocation(i, j);
-					VisibilityTimers[i][j] -= 1;
-				}
-			}
-		}
-	}
-}
-
 // Get all faces that sit between a player and an enemy and have a normal pointing outward
 // toward the player, thus skipping redundant back faces.
 void ACullingController::GetFacesBetween(
@@ -226,40 +210,85 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
 	// Faces of the cuboid that are between the player and enemy
 	// and have a normal pointing toward the player--thus skipping back faces.
-	TArray<Face> FacesBetween;
 	FVector& PlayerCameraLocation = Bounds[B.PlayerI].CameraLocation;
 	FVector& EnemyCenter = Bounds[B.EnemyI].Center;
-	float EnemyInnerRadius = Bounds[B.EnemyI].InnerRadius;
-	float EnemyOuterRadius = Bounds[B.EnemyI].OuterRadius;
-	bool blocked = false;
-	GetFacesBetween(PlayerCameraLocation, EnemyCenter, OccludingCuboid, FacesBetween);
-	if (FacesBetween.Num() > 0) {
-		blocked = true;
-		TArray<FPlane> ShadowFrustum;
-		GetShadowFrustum(PlayerCameraLocation, OccludingCuboid, FacesBetween, ShadowFrustum);
-		//GEngine->AddOnScreenDebugMessage(9, 0.25f, FColor::Yellow, FString::FromInt(ShadowFrustumPlanes.Num()), true, FVector2D(1.5f, 1.5f));
-		for (FPlane& P : ShadowFrustum) {
-			// Signed distance from enemy to plane. The direction of the plane's normal vector is negative.
-			float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
-			if (EnemyDistanceToPlane > EnemyOuterRadius) {
-				continue;
-			} else if (EnemyDistanceToPlane < EnemyInnerRadius) {
-				blocked = false;
-				break;
-			} else {
-				GEngine->AddOnScreenDebugMessage(6, 0.25f, FColor::Yellow, "REEEE", true, FVector2D(1.5f, 1.5f));
+	CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
+	float EnemyInnerRadius = EnemyBounds.InnerRadius;
+	float EnemyOuterRadius = EnemyBounds.OuterRadius;
+	TArray<FVector> Peeks = PossiblePeeks(
+		PlayerCameraLocation,
+		EnemyBounds.Center, 
+		20.0f,
+		10.0f
+	).Corners;
+	// Shadow frustum for each possible peek.
+	TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
+	// Marks if we have to check visibility with the enemy bounding box
+	// on a peek because bounding sphere checks were inconclusive.
+	bool CheckBox[NUM_PEEKS] = { false };
+	char NumExposed = 0;
+	for (int i = 0; i < NUM_PEEKS; i++) {
+		// TODO: Check if this line is necessary.
+		TArray<Face> FacesBetween;
+		GetFacesBetween(Peeks[i], EnemyBounds.Center, OccludingCuboid, FacesBetween);
+		if (FacesBetween.Num() > 0) {
+			GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
+			// Try to determine visibility with quick bounding sphere checks.
+			// Mark the check as inconclusive if a plane intersects
+			// the outer bounding sphere but not the inner one.
+			for (FPlane& P : ShadowFrustums[i]) {
+				// Signed distance from enemy to plane. The direction of the plane's normal vector is negative.
+				float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
+				// The outer sphere is completely hidden,
+				// so the enemy cannot be revealed through this plane.
+				if (EnemyDistanceToPlane > EnemyOuterRadius) {
+					continue;
+				// The inner sphere is revealed,
+				// so the enemy must be revealed through this plane.
+				} else if (EnemyDistanceToPlane < EnemyInnerRadius) {
+					return false;
+				// Inconclusive. Use the bounding box for an accurate test.
+				} else {
+					CheckBox[i] = true;
+					break;
+				}
+			}
+		// There are no faces between the player and enemy.
+		// Thus the cuboid cannot block LOS.
+		} else {
+			return false;
+		}
+	}
+	// If the the peek is inconclusive, then check if the vertices of the
+	// enemy's bounding box lie within the shadow frustum of the peek.
+	// Because each bottom vertex is directly below a top vertex,
+	// we do not need to check bottom vertices when peeking from above.
+	// Similarly, we do not need to check top vertices when peeking from below.
+	// To reiterate, peeks 0 and 1 are from above; 2 and 3 are from below.
+	if (CheckBox[0] && !InFrustum(EnemyBounds.TopVertices, ShadowFrustums[0]))
+		return false;
+	if (CheckBox[1] && !InFrustum(EnemyBounds.TopVertices, ShadowFrustums[1]))
+		return false;
+	if (CheckBox[2] && !InFrustum(EnemyBounds.BottomVertices, ShadowFrustums[2]))
+		return false;
+	if (CheckBox[3] && !InFrustum(EnemyBounds.BottomVertices, ShadowFrustums[3]))
+		return false;
+	return true;
+}
+
+bool ACullingController::InFrustum(
+	const TArray<FVector>& Points,
+	const TArray<FPlane>& Planes
+) {
+	for (const FVector& Point : Points) {
+		for (const FPlane& Plane : Planes) {
+			// The point is on the outer side of the plane.
+			if (Plane.PlaneDot(Point) > 0) {
+				return false;
 			}
 		}
 	}
-	return blocked;
-}
-
-// Use bounding spheres to check if a cuboid blocks visibility.
-bool ACullingController::IsBlocking(
-	const FVector& PlayerCameraLocation,
-	const CharacterBounds& EnemyBounds
-) {
-	
+	return true;
 }
 
 // Currently just returns all cuboids.
@@ -272,18 +301,36 @@ TArray<int> ACullingController::GetPossibleOccludingCuboids(Bundle B) {
 	return Possible;
 }
 
+
+void ACullingController::SendLocations()
+{
+	for (int i = 0; i < Characters.Num(); i++) {
+		if (IsAlive[i]) {
+			for (int j = 0; j < Characters.Num(); j++) {
+				if (IsAlive[j] && (VisibilityTimers[i][j] > 0)) {
+					SendLocation(i, j);
+				}
+			}
+		}
+	}
+}
+
 // Draw a line from character i to j, simulating the sending of a location.
 // TODO: Integrate server location-sending API when deploying to a game.
 void ACullingController::SendLocation(int i, int j)
 {
-	// Only draw lines for the controlled demo character, for visibility.
-	if (i != 1)
-		return;
-	ConnectVectors(
-		GetWorld(),
-		Bounds[i].Center + FVector(0, 0, 10),
-		Bounds[j].Center
-	);
+	// Only draw lines from team 0 to 1;
+	if (Characters[i]->Team -= 0) {
+		ConnectVectors(
+			GetWorld(),
+			Bounds[i].Center + FVector(0, 0, 10),
+			Bounds[j].Center,
+			false,
+			0.02,
+			1,
+			FColor::Green
+		);
+	}
 }
 
 void ACullingController::Tick(float DeltaTime)
@@ -293,37 +340,46 @@ void ACullingController::Tick(float DeltaTime)
 }
 
 void ACullingController::Cull() {
-	UpdateCharacterBounds();
-	PopulateBundles();
-	CullWithCache();
-	CullRemaining();
-	// Moved to BenchMarkCull so that debug lines do not mess up benchmark.
-	// UpdateVisibility();
+	if ((TotalTicks % CullingPeriod) == 0) {
+		UpdateCharacterBounds();
+		PopulateBundles();
+		CullWithCache();
+		CullRemaining();
+	}
+	// Moved to BenchMarkCull so that drawing debug lines does not add
+	// to runtime statistics.
+	// SendLocations();
 }
 
 void ACullingController::BenchmarkCull() {
 	auto Start = std::chrono::high_resolution_clock::now();
 	Cull();
 	auto Stop = std::chrono::high_resolution_clock::now();
-	UpdateVisibility();
+	SendLocations();
 	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
 	TotalTime += Delta;
 	RollingTotalTime += Delta;
 	RollingMaxTime = std::max(RollingMaxTime, Delta);
-	if ((TotalTicks % RollingLength) == 0) {
-		RollingAverageTime = RollingTotalTime / RollingLength;
+	if ((TotalTicks % RollingWindowLength) == 0) {
+		RollingAverageTime = RollingTotalTime / RollingWindowLength;
+		if (GEngine) {
+			// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
+			// Make sure that multiple servers are staggered so these spikes do not add up.
+			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
+			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
+			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
+			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		}
+		if (RollingMaxTime > TimerLoadThreshold) {
+			TimerIncrement = MaxTimerIncrement;
+		}
+		else {
+			TimerIncrement = MinTimerIncrement;
+		}
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
-	}
-	if (GEngine && (TotalTicks - 1) % RollingLength == 0) {
-		// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
-		// Make sure that multiple servers are staggered so these spikes do not add up.
-		FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-		GEngine->AddOnScreenDebugMessage(1, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-		GEngine->AddOnScreenDebugMessage(2, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-		GEngine->AddOnScreenDebugMessage(3, 0.25f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 	}
 }
 

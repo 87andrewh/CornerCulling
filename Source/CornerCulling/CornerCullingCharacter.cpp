@@ -1,14 +1,12 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "CornerCullingCharacter.h"
-#include "CornerCullingProjectile.h"
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
-#include "Utils.h"
 #include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
@@ -17,7 +15,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 // ACornerCullingCharacter
 
 ACornerCullingCharacter::ACornerCullingCharacter()
-{
+{	
+	PrimaryActorTick.bCanEverTick = true;
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
 	// set our turn rates for input
@@ -151,5 +151,11 @@ void ACornerCullingCharacter::LookUpAtRate(float Rate)
 // Called every frame
 void ACornerCullingCharacter::Tick(float DeltaTime)
 {
+	TickCount++;
 	Super::Tick(DeltaTime);
+	// Move randomly if we are not a controlled demo character.
+	if (!IsDemoCharacter && ((TickCount % 5) == 0)) {
+		FVector Offset = 20 * FVector(0.6f - FMath::FRand(), 0.6f - FMath::FRand(), 0);
+		AddActorWorldOffset(Offset);
+	}
 }

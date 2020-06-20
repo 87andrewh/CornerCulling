@@ -21,7 +21,10 @@ void AOccluder::DrawEdges(bool Persist = false) {
 				World,
 				OccludingCuboid.GetVertex(i, j),
 				OccludingCuboid.GetVertex(i, (j + 1) % CUBOID_FACE_V),
-				Persist
+				Persist,
+				5,
+				3,
+				FColor::Black
 			);
 		}
 	}
@@ -31,28 +34,21 @@ void AOccluder::BeginPlay()
 {
 	Super::BeginPlay();
 	SetActorTickEnabled(false);
-	FlushPersistentDebugLines(GetWorld());
-
-	FTransform T = GetTransform();
-	Vectors.Reset();
-	Vectors.Emplace(T.TransformPosition(V0));
-	Vectors.Emplace(T.TransformPosition(V1));
-	Vectors.Emplace(T.TransformPosition(V2));
-	Vectors.Emplace(T.TransformPosition(V3));
-	Vectors.Emplace(T.TransformPosition(V4));
-	Vectors.Emplace(T.TransformPosition(V5));
-	Vectors.Emplace(T.TransformPosition(V6));
-	Vectors.Emplace(T.TransformPosition(V7));
-	OccludingCuboid = Cuboid(Vectors);
+	UpdateCuboid();
 	DrawEdges(true);
 }
 
 void AOccluder::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if ((int(DeltaTime) % 10) != 0) {
-		return;
+	TickCount++;
+	if ((TickCount % DrawPeriod) == 0) {
+		UpdateCuboid();
+		DrawEdges(false);
 	}
+}
+
+void AOccluder::UpdateCuboid() {
 	FTransform T = GetTransform();
 	Vectors.Reset();
 	Vectors.Emplace(T.TransformPosition(V0));
@@ -64,7 +60,6 @@ void AOccluder::Tick(float DeltaTime)
 	Vectors.Emplace(T.TransformPosition(V6));
 	Vectors.Emplace(T.TransformPosition(V7));
 	OccludingCuboid = Cuboid(Vectors);
-	DrawEdges(false);
 }
 
 bool AOccluder::ShouldTickIfViewportsOnly() const { return true;  }

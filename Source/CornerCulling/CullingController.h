@@ -12,6 +12,9 @@
 # define CUBOID_F 6
 // Number of vertices in a face of a cuboid.
 # define CUBOID_FACE_V 4
+// Number of peeks checked to account for latency.
+// Relevant for PossiblePeeks structs.
+# define NUM_PEEKS 4
 
 // Four-sided face of a cuboid.
 struct Face {
@@ -125,16 +128,6 @@ struct Cuboid {
 	}
 };
 
-// 3D Line segment. Defined by two points.
-struct Segment {
-	FVector Start, End;
-	Segment() {}
-	Segment(const FVector& V1, const FVector& V2) {
-		Start = V1;
-		End = V2;
-	}
-};
-
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
 // If the sphere is only partially occluded, then check against all tight bounding points.
 struct CharacterBounds {
@@ -172,9 +165,14 @@ struct CharacterBounds {
 	CharacterBounds() {}
 };
 
-// Four positions that encompass a player's possible peeks on an enemy.
+// Corners of the rectangle encompassing a player's possible peeks on an enemy.
+// Inaccurate on very wide enemies, as the most aggressive angle to peek
+// the left of an enemy is actually perpendicular to the leftmost point
+// of the enemy, not its center.
+// When facing along the vector from player to enemy, Corners are indexed
+// starting from the top right, proceeding counter-clockwise.
 struct PossiblePeeks {
-	FVector TopLeft, TopRight, BottomLeft, BottomRight;
+	TArray<FVector> Corners;
 	PossiblePeeks() {}
 	PossiblePeeks(
 		FVector PlayerLocation,
@@ -186,10 +184,10 @@ struct PossiblePeeks {
 		// Horizontal vector is parallel to the XY plane and is perpendicular to PlayerToEnemy.
 		FVector Horizontal = MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
 		FVector Vertical = FVector(0, 0, MaxDeltaVertical);
-		TopLeft = PlayerLocation + Horizontal + Vertical;
-		TopRight = PlayerLocation - Horizontal + Vertical;
-		BottomLeft = PlayerLocation + Horizontal - Vertical;
-		BottomRight = PlayerLocation - Horizontal - Vertical;
+		Corners.Emplace(PlayerLocation + Horizontal + Vertical);
+		Corners.Emplace(PlayerLocation - Horizontal + Vertical);
+		Corners.Emplace(PlayerLocation - Horizontal - Vertical);
+		Corners.Emplace(PlayerLocation + Horizontal - Vertical);
 	}
 };
 
@@ -217,12 +215,14 @@ class ACullingController : public AInfo
 	TArray<bool> IsAlive;
 	// Bounding volumes of all characters.
 	TArray<CharacterBounds> Bounds;
-	// All occluding cuboids in the map.
-	// Cache of cuboids that recently blocked LOS from the first character to the second.
+	// Cache of cuboids that recently blocked LOS from one character to another.
 	int CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// Timers that track the last time a cache element culled.
 	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
+	// All occluding cuboids in the map.
 	TArray<Cuboid> Cuboids;
+	// Queue of bundles needing to be culled.
+	// First queue is fed into CullWithCache; leftovers are culled from second.
 	TArray<Bundle> BundleQueue;
 	TArray<Bundle> BundleQueue2;
 	// Used to find duplicate edges when merging faces.
@@ -243,9 +243,13 @@ class ACullingController : public AInfo
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int TimerIncrement = 5;
-	// Increase the increment when the server is under heavy load.
-	int LongTimerIncrement = 30;
+	int MinTimerIncrement = 10;
+	// Bigger increment for when the server is under heavy load.
+	int MaxTimerIncrement = 20;
+	int TimerIncrement = MinTimerIncrement;
+	// If the rolling max time to cull exceeds the threshold, set TimerIncrement to
+	// MaxTimerIncrement. Else set it to MinTimerIncrement.
+	int TimerLoadThreshold = 1000;
 
 	// How many frames pass between each cull.
 	int CullingPeriod = 4;
@@ -254,8 +258,8 @@ class ACullingController : public AInfo
 	float RollingAverageTime = 0;
 	// Stores maximum culling time in rolling window.
 	int RollingMaxTime = 0;
-	// Number of frames in the rolling window.
-	int RollingLength = 4 * CullingPeriod;
+	// Number of ticks in the rolling window.
+	int RollingWindowLength =  CullingPeriod * 20;
 	// Total tick counter
 	int TotalTicks = 0;
 	// Store overall average culling time (in microseconds)
@@ -270,11 +274,14 @@ class ACullingController : public AInfo
 	void CullWithCache();
 	// Cull remaining bundles in the queue.
 	void CullRemaining();
-	// For all players, update the visibility of their enemies.
-	void UpdateVisibility();
 	// Get all faces that sit between a player and an enemy and have a normal pointing outward
 	// toward the player, thus skipping redundant back faces.
-	void GetFacesBetween(const FVector& PlayerCameraLocation, const FVector& EnemyCenter, const Cuboid& OccludingCuboid, TArray<Face>& FacesBetween);
+	void GetFacesBetween(
+		const FVector& PlayerCameraLocation,
+		const FVector& EnemyCenter,
+		const Cuboid& OccludingCuboid,
+		TArray<Face>& FacesBetween
+	);
 
 	// Get the shadow frustum. Given a point light shining on a polyhedron,
 	// the shadow frustum is comprised of all planes bordering the dark region.
@@ -292,14 +299,29 @@ class ACullingController : public AInfo
 	//           \--           
 	//              \--      
 	// 2D example. P for player camera, E for enemy.
-	void GetShadowFrustum(const FVector& PlayerCameraLocation, const Cuboid& OccludingCuboid, const TArray<Face>& FacesBetween, TArray<FPlane>& ShadowFrustum);
+	void GetShadowFrustum(
+		const FVector& PlayerCameraLocation,
+		const Cuboid& OccludingCuboid,
+		const TArray<Face>& FacesBetween,
+		TArray<FPlane>& ShadowFrustum
+	);
 
-	// Check if a Cuboid blocks all lines of sight between a player's possible peeks and points in an enemy's bounding box,
-	// stored in a bundle.
+	// Check if a Cuboid blocks all lines of sight between a player's possible
+	// peeks and points in an enemy's bounding box, stored in a bundle.
 	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
+
+	// Check if all points are in the frustum defined by the planes.
+	bool InFrustum(
+		const TArray<FVector>& Points,
+		const TArray<FPlane>& Planes
+	);
 
 	// Get all indices of cuboids that could block LOS between the player and enemy in the bundle.
 	TArray<int> GetPossibleOccludingCuboids(Bundle B);
+
+	// For all pairs of characters, if character i should be visible to j,
+	// then send j's location to i.
+	void SendLocations();
 
 	// Send location of character j to character i.
 	void SendLocation(int i, int j);
@@ -310,7 +332,10 @@ protected:
 public:
 	ACullingController();
 	virtual void Tick(float DeltaTime) override;
+	// Cull visibility for all player, enemy pairs.
 	void Cull();
+	// Cull while gathering and reporting runtime statistics.
+	// Tracking runtime also enables load-adaptive culling.
 	void BenchmarkCull();
 
 	// Mark a vector. For debugging.
@@ -319,8 +344,16 @@ public:
 	}
 	
 	// Draw a line between two vectors. For debugging.	
-	static inline void ConnectVectors(UWorld* World, const FVector& V1, const FVector& V2, bool Persist = false, float Thickness = 2.f) {
-		DrawDebugLine(World, V1, V2, FColor::Emerald, Persist, 0.01f, 0, Thickness);
+	static inline void ConnectVectors(
+		UWorld* World,
+		const FVector& V1,
+		const FVector& V2,
+		bool Persist = false,
+		float Lifespan = 0.1f,
+		float Thickness = 2.0f,
+		FColor Color = FColor::Emerald)
+	{
+		DrawDebugLine(World, V1, V2, Color, Persist, Lifespan, 0, Thickness);
 	}
 
 	static inline int ArgMin(int A[], int Length) {

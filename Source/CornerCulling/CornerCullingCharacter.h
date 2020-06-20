@@ -73,6 +73,13 @@ public:
 	UPROPERTY(EditAnywhere)
 	int Team;
 
+	// Tracks if this character is controlled in the demo.
+	// TODO: Remove when integrating to game.
+	UPROPERTY(EditAnywhere)
+	bool IsDemoCharacter = false;
+
+	int TickCount = 0;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
