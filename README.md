@@ -33,102 +33,29 @@ Also, we must account for latency to prevent popping. To do so, one should calcu
 By accounting for latency, we can also afford to speed up average culling time by a factor of K if we cull every K ticks. Compared to a 100 ms ping, the added delay of culling every 30 ms instead of 10 ms is minimal--but results in a 3x speedup. I have not tested whether it is ideal to spread out the culling over multiple ticks for all game server instances running on a single CPU, or if it is better to stagger the full culling cycle of each game instance. I suspect that the latter will have better cache performance.
 
 The last big tip is to keep enemies revealed for a few culling cycles. It is expensive when all polyhedra failed to occlude an enemy, especially if many of them barely failed. Keeping enemies revealed for ~200 ms does not confer a big advantage to wallhackers, but could save CPU cycles. This timer can adapt to server load.
-
-## Major Task:  
-Big refactor ¯\\\_(ツ)_/¯  
-Move occlusion logic to OcclusionController class.  
-Disentangle VisibilityPrisms from players and occluding objects.  
-
-Refactor design doc:  
-    Culling controller handles all culling. New culling loop.  
-    
-```python
-# Get line segments needed to calculate LOS between each player and their enemies.
-for player_i in player_indicies:  
-    for enemy_i in player_indicies:
-        if (get_team(player_i) != get_team(enemy_i) and
-            (almost_visible(player_i, enemy_i) or
-             ((cull_this_tick() and
-              potentially_visible(player_i, enemy_i)
-             )
-            )
-           ):  
-            LOS_bundle_queue.push(LOS_bundle(player_i, enemy_i))
-
-# Try to block segments with occluders in each bundles player's cache.
-# This case should be common and fast.
-for bundle in LOS_bundle_queue:
-    for z_wall in z_wall_caches[bundle.player_i]:  
-        if check_LOS(bundle, wall):
-            blocked_queue.push(bundle)
-            break
-    for cuboid in cuboid_caches[bundle.player_i]:  
-        if check_LOS(bundle, cuboid):
-            blocked_queue.push(bundle)
-            break
-    LOS_bundle_queue_2.push(segments)
-
-# Check remaining LOS segments against all occluding planes in the queue.
-for bundle in LOS_bundle_queue_2:
-    for wall in get_z_walls(bundle):  
-        if check_LOS(bundle, wall):
-            blocked_queue.push(bundle)
-            update_cache_LRU(z_wall_caches[bundle.player_i], wall)
-            break
-    for cuboid in get_cuboids(bundle):  # Everything, a PVS set, or an octree/BSP/BVH search result  
-        if check_LOS(bundle, cuboid):
-            blocked_queue.push(bundle)
-            update_cache_LRU(cuboid_caches[bundle.player_i], cuboid)
-            break
-
-for bundle in blocked_queue:
-    hide(bundle.player_i, bundle.enemy_i)
-reset_queues() # In practice we probably just pop in the loops, but this design is clearer
-```
                
+## Priority Tasks
+- Update demos to show off improvements.
+- Implement bounding volume hierarchy or BSP to only check occluders along a line of sight
+
 ## Other Tasks (in no order):
-- Implement potentially visible sets to pre-cull enemies or get relevant occluding objects.
-- Consider using bounding volume hierarchy or binary space partition to only check objects
-  along each line of sight
-- Account for Z axis with more general line of sight check. Outlined below.
-- Implement UE4 API for map editing, most basically as a cuboid blueprint with editable vertices.
+- Implement potentially visible sets to pre-cull enemies.
+
 - Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
 - Research out to fraud detection experts and anti-cheat developers in other industries.
 - Reach out to more FPS game developers, as well as executives.
 - Continue researching graphics community state of the art.
-- Make enemy lingering visibility adaptive to server load.
-- Test LRU, K-th chance, and random replacement algorithms. I suspect LRU is optimal due
-  to small cache sizes and light overhead compared to checking operations.
 - Design optimizations for large Battle Royale type games.
-  No culling until enough players die. PVS filter players and occluders. Only cull accurately up close.
+  No culling until enough players die. PVS filter players. Only cull accurately up close.
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
   We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
   Say, have a midpoint on each edge. If it and one of its neighbors are occluded, throw away the neighbor.
-  Alternatively, think of subviding one bounding polyhedra into many, and cull those individually.
-  Still, this seems like a lot extra work (to code, and I think during runtime) for a niche situation. 
-  Hmm, another idea is to move and scale the inner visibility sphere. 
+  Alternatively, think of subviding one bounding box into many, and cull those individually.
+  Still, this seems like a it of extra work (to code, possible during runtime) for a niche situation. 
 - Consider z-buffer algorithm.
 - Consider sending fake enemy locations.
-
-### General blocking LOS check:
-- Take as input a player camera location, the enemy bounding volume(s), and a possibly occluding convex polyhedra.
-- Returns if the occluder completely blocks the enemy.
-- Get the player-facing polygons of each potentially occluding volume
-  by dot producting the polygons' normals with a line from the player position to a vertex of the polygon.
-- Possibly collapse polygons together with weighted average of normals, but should be unnecessary with simple geometry. 
-- Check that the enemy is on the opposite side of all player-facing polygons. If not, return blocked = false.
-- Get the perimeter edges of the polyhedral mesh formed by these surfaces by XORing in edges of all polygons.
-  Interior edges are added an even number of times, and thus excluded.
-- Create occlusion planes from the player position to the edges of the perimeter.
-- Check that the enemy is on the inside of all occlusion planes. Return the result.
-
-### Calculating potential player locations when aggressively peeking an enemy:
-- Given a player with latency and thus uncertain position, draw a line from
-  the player camera's most recently known position to the known center of an enemy.  
-- In the plane that is normal to that line and contains the player, return the corners of
-  the rectangle that bounds the possible positions of the player.  
 
 ## Research
 
@@ -156,7 +83,7 @@ https://en.wikipedia.org/wiki/Back-face_culling
 https://en.wikipedia.org/wiki/Clipping_(computer_graphics)
 
 ### Note on (un) originaliy
-Unsurprisingly (and fortunately), graphics researchers are decades ahead. My idea is basically shadow culling,  
+Soon after developing my initial prototype, I discovered that my idea is basically shadow culling,
 which graphics researchers documented in 1997. <br />  
 https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1 <br />  
 [Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
