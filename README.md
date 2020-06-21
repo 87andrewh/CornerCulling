@@ -63,12 +63,11 @@ https://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_
 https://www.youtube.com/watch?v=h4GBU-NXJ1c  
 
 ### Faster raytracing:  
-http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf  
+Real-Time Rendering, Fourth Edition
+http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
 https://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/14/lec14.pdf
 https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
 http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
-
-"a large custom static mesh with no instancing, such as an urban scene, or a complex indoor environment, will typically use a BSP-Tree for improved runtime performance. The fact that the BSP-Tree splits geometry on node-boundaries is helpful for rendering performance, because the BSP nodes can be used as pre-organized triangle rendering batches. The BSP-Tree can also be optimized for occlusion, avoiding the need to draw portions of the BSP-Tree which are known to be behind other geometry."  
 https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
 
 ### Fast polyhedra/line intersection
