@@ -1,14 +1,10 @@
 # CornerCulling
-Fast and maximally accurate culling method. Proof of concept in C++ and UE4.
-Wallhack Penicillin.  
+Fast, maximally accurate, and latency resistant culling method.  
+Proof of concept in C++ and UE4. Wallhack Penicillin.  
 Calculates lines of sight from possible (due to latency) locations of players to the corners of the bounding volumes of enemies,
-determining if they intersect with the bounding volumes of occluding objects. Analytical approach to raycasts. Speed gains from heuristics and caching.
-
-Runtime demonstration:
-https://youtu.be/SHUXDR0hleU
-
-Accuracy demonstration:
-https://youtu.be/tzrIXcdYQJE
+determining if they intersect with the bounding volumes of occluding objects. Analytical approach to raycasts.
+#### Latest Demo
+https://youtu.be/K8jm5evnPiY
 
 An alternative implementation could fetch all objects potentially along each line of sight,
 using an efficient bounding volume hierarchy. In a game with a large number of static objects,
