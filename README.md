@@ -33,10 +33,10 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
 ## Priority Tasks
 - Update demos to show off improvements.
 - Implement bounding volume hierarchy or BSP to only check occluders along a line of sight
+- Explore plane masking, testing bounding boxes only against shadow frustum planes that clipped bounding spheres.
 
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
-
 - Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
 - Research out to fraud detection experts and anti-cheat developers in other industries.
 - Reach out to more FPS game developers, as well as executives.
@@ -50,7 +50,6 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
   Say, have a midpoint on each edge. If it and one of its neighbors are occluded, throw away the neighbor.
   Alternatively, think of subviding one bounding box into many, and cull those individually.
   Still, this seems like a it of extra work (to code, possible during runtime) for a niche situation. 
-- Consider z-buffer algorithm.
 - Consider sending fake enemy locations.
 
 ## Research
