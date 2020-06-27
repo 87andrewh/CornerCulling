@@ -70,6 +70,7 @@ https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-
 
 ### Fast polyhedra/line intersection
 https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
+https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
 
 ### Potentially Useful Geomeotry
 https://en.wikipedia.org/wiki/Back-face_culling
