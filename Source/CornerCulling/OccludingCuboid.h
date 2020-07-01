@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "CullingController.h"
-#include "Occluder.generated.h"
+#include "OccludingCuboid.generated.h"
 
 // Box that occludes vision.
  UCLASS(BlueprintType, Blueprintable)
-class AOccluder : public AActor
+class AOccludingCuboid : public AActor
 {
 	 GENERATED_BODY()
 
@@ -37,7 +37,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	FVector V7 = FVector(200, -200, -200);
 
-	AOccluder();
+	AOccludingCuboid();
 	// Vertices of an occluding cuboid.
 	UPROPERTY()
 	TArray<FVector> Vectors = TArray<FVector>();
@@ -45,7 +45,7 @@ public:
 	Cuboid OccludingCuboid;
 
 	// Update OccludingCuboid according to the vertices.
-	void UpdateCuboid();
+	void Update();
 
 protected:
 	// Draw the bounds of this occluder in the editor.

@@ -8,15 +8,15 @@
 #include "CullingController.generated.h"
 
 // Number of vertices and faces of a cuboid.
-# define CUBOID_V 8
-# define CUBOID_F 6
+constexpr char CUBOID_V = 8;
+constexpr char CUBOID_F = 6;
 // Number of vertices in a face of a cuboid.
-# define CUBOID_FACE_V 4
+constexpr char CUBOID_FACE_V = 4;
 // Number of peeks checked to account for latency.
 // Relevant for PossiblePeeks structs.
-# define NUM_PEEKS 4
+constexpr char NUM_PEEKS = 4;
 
-// Four-sided face of a cuboid.
+// Quadrilateral face of a cuboid.
 struct Face {
 	FVector Normal;
 	// Indexes of vertices on the perimeter. Counter-clockwise from outside perspective.
@@ -33,8 +33,10 @@ struct Face {
 	//	|.'    5  | .'   
 	//	+---------+'    
 	//	To reiterate, 1 is in front, and we continue counterclockwise.
-	Face(int i, FVector Vertices[]) {
-		switch (i) {
+	Face(int i, FVector Vertices[])
+    {
+		switch (i)
+        {
 			case 0:
 				Perimeter[0] = 0;
 				Perimeter[1] = 1;
@@ -59,7 +61,6 @@ struct Face {
 				Perimeter[1] = 4;
 				Perimeter[2] = 5;
 				Perimeter[3] = 1;
-
 				break;
 			case 4:
 				Perimeter[0] = 1;
@@ -79,7 +80,8 @@ struct Face {
 			Vertices[Perimeter[2]] - Vertices[Perimeter[0]]
 		).GetSafeNormal(1e-6);
 	}
-	Face(const Face& F) {
+	Face(const Face& F)
+    {
 		Perimeter[0] = F.Perimeter[0];
 		Perimeter[1] = F.Perimeter[1];
 		Perimeter[2] = F.Perimeter[2];
@@ -103,30 +105,45 @@ struct Cuboid {
 	//	 |.'    | .'
 	//	 6------7'
 	Cuboid(TArray<FVector> V) {
-		if (V.Num() != CUBOID_V) {
+		if (V.Num() != CUBOID_V)
+        {
 			return;
 		}
-		for (int i = 0; i < CUBOID_V; i++) {
+		for (int i = 0; i < CUBOID_V; i++)
+        {
 			Vertices[i] = FVector(V[i]);
 		}
-		for (int i = 0; i < CUBOID_F; i++) {
+		for (int i = 0; i < CUBOID_F; i++)
+        {
 			Faces[i] = Face(i, Vertices);
 		}
 	}
 	// Copy constructor.
-	Cuboid(const Cuboid& C) {
-		for (int i = 0; i < CUBOID_V; i++) {
+	Cuboid(const Cuboid& C)
+    {
+		for (int i = 0; i < CUBOID_V; i++)
+        {
 			Vertices[i] = FVector(C.Vertices[i]);
 		}
-		for (int i = 0; i < CUBOID_F; i++) {
+		for (int i = 0; i < CUBOID_F; i++)
+        {
 			Faces[i] = Face(C.Faces[i]);
 		}
 	}
 	// Return the vertex on face i with perimeter index j.
-	FVector GetVertex(int i, int j) const {
+	FVector GetVertex(int i, int j) const
+    {
 		return Vertices[Faces[i].Perimeter[j]];
 	}
 };
+
+struct Sphere
+{
+    FVector Center;
+    float Radius;
+};
+
+FSphere
 
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
 // If the sphere is only partially occluded, then check against all tight bounding points.
@@ -227,6 +244,8 @@ class ACullingController : public AInfo
 	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// All occluding cuboids in the map.
 	TArray<Cuboid> Cuboids;
+	// All occluding spheres in the map.
+	TArray<Sphere> Spheres;
 	// Queue of bundles needing to be culled.
 	// First queue is fed into CullWithCache; leftovers are culled from second.
 	TArray<Bundle> BundleQueue;
@@ -276,10 +295,12 @@ class ACullingController : public AInfo
 	void UpdateCharacterBounds();
 	// Calculate all LOS bundles and add them to the queue.
 	void PopulateBundles();
-	// Cull all bundles using each player's cache of boxes.
+	// Cull all bundles with each player's cache of occluders.
 	void CullWithCache();
-	// Cull remaining bundles in the queue.
-	void CullRemaining();
+	// Cull queued bundles with occluding spheres.
+	void CullWithSpheres();
+	// Cull queued bundles with occluding cuboids.
+	void CullWithCuboids();
 	// Get all faces that sit between a player and an enemy and have a normal pointing outward
 	// toward the player, thus skipping redundant back faces.
 	void GetFacesBetween(
@@ -341,7 +362,6 @@ public:
 	// Cull visibility for all player, enemy pairs.
 	void Cull();
 	// Cull while gathering and reporting runtime statistics.
-	// Tracking runtime also enables load-adaptive culling.
 	void BenchmarkCull();
 
 	// Mark a vector. For debugging.
@@ -362,6 +382,7 @@ public:
 		DrawDebugLine(World, V1, V2, Color, Persist, Lifespan, 0, Thickness);
 	}
 
+    // Get the index of the minimum element in an array.
 	static inline int ArgMin(int A[], int Length) {
 		int Min = INT_MAX;
 		int MinI = 0;

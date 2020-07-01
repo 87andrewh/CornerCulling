@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Occluder.h"
+#include "OccludingCuboid.h"
 
-AOccluder::AOccluder()
+AOccludingCuboid::AOccludingCuboid()
 	: Super()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -11,7 +11,7 @@ AOccluder::AOccluder()
 
 // Draw edges of the occluder. Currently only implemented for cuboids.
 // Code is not performance optimal, but it doesn't need to be.
-void AOccluder::DrawEdges(bool Persist = false) {
+void AOccludingCuboid::DrawEdges(bool Persist = false) {
 	UWorld* World = GetWorld();
 	for (int i = 0; i < CUBOID_F; i++) {
 		//FString S = FString::SanitizeFloat(OccludingCuboid.Faces[i].Normal.X);
@@ -30,25 +30,25 @@ void AOccluder::DrawEdges(bool Persist = false) {
 	}
 }
 
-void AOccluder::BeginPlay()
+void AOccludingCuboid::BeginPlay()
 {
 	Super::BeginPlay();
 	SetActorTickEnabled(false);
-	UpdateCuboid();
+	Update();
 	DrawEdges(true);
 }
 
-void AOccluder::Tick(float DeltaTime)
+void AOccludingCuboid::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	TickCount++;
 	if ((TickCount % DrawPeriod) == 0) {
-		UpdateCuboid();
+		Update();
 		DrawEdges(false);
 	}
 }
 
-void AOccluder::UpdateCuboid() {
+void AOccludingCuboid::Update() {
 	FTransform T = GetTransform();
 	Vectors.Reset();
 	Vectors.Emplace(T.TransformPosition(V0));
@@ -62,4 +62,4 @@ void AOccluder::UpdateCuboid() {
 	OccludingCuboid = Cuboid(Vectors);
 }
 
-bool AOccluder::ShouldTickIfViewportsOnly() const { return true;  }
+bool AOccludingCuboid::ShouldTickIfViewportsOnly() const { return true;  }

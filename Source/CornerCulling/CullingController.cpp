@@ -2,7 +2,7 @@
 
 #include "CullingController.h"
 #include "CornerCullingCharacter.h"
-#include "Occluder.h"
+#include "OccludingCuboid.h"
 #include "EngineUtils.h" // TActorRange
 #include <chrono> 
 
@@ -25,54 +25,10 @@ void ACullingController::BeginPlay()
 		Teams.Emplace(Player->Team);
     }
 	// Acquire the prisms of occluding objects.
-    for (AOccluder* Occluder : TActorRange<AOccluder>(GetWorld()))
+    for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
 		Cuboids.Add(Cuboid(Occluder->Vectors));
     }
-}
-
-void ACullingController::BenchmarkCull() {
-	auto Start = std::chrono::high_resolution_clock::now();
-	Cull();
-	auto Stop = std::chrono::high_resolution_clock::now();
-	SendLocations();
-	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
-	TotalTime += Delta;
-	RollingTotalTime += Delta;
-	RollingMaxTime = std::max(RollingMaxTime, Delta);
-	if ((TotalTicks % RollingWindowLength) == 0) {
-		RollingAverageTime = RollingTotalTime / RollingWindowLength;
-		if (GEngine) {
-			// Remember, 1 cull happens per culling period. Each cull takes period times as long as the average.
-			// Make sure that multiple servers are staggered so these spikes do not add up.
-			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		}
-		if (RollingMaxTime > TimerLoadThreshold) {
-			TimerIncrement = MaxTimerIncrement;
-		}
-		else {
-			TimerIncrement = MinTimerIncrement;
-		}
-		RollingTotalTime = 0;
-		RollingMaxTime = 0;
-	}
-}
-
-void ACullingController::Cull() {
-	if ((TotalTicks % CullingPeriod) == 0) {
-		UpdateCharacterBounds();
-		PopulateBundles();
-		CullWithCache();
-		CullRemaining();
-	}
-	// Moved to BenchMarkCull so that drawing debug lines does not add
-	// to runtime statistics.
-	// SendLocations();
 }
 
 void ACullingController::UpdateCharacterBounds()
@@ -105,6 +61,51 @@ void ACullingController::PopulateBundles()
 	}
 }
 
+void ACullingController::BenchmarkCull() {
+	auto Start = std::chrono::high_resolution_clock::now();
+	Cull();
+	auto Stop = std::chrono::high_resolution_clock::now();
+	SendLocations();
+	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
+	TotalTime += Delta;
+	RollingTotalTime += Delta;
+	RollingMaxTime = std::max(RollingMaxTime, Delta);
+	if ((TotalTicks % RollingWindowLength) == 0) {
+		RollingAverageTime = RollingTotalTime / RollingWindowLength;
+		if (GEngine) {
+			// One cull happens every CullingPeriod frames.
+            // TODO:
+            //   When running multiple servers per CPU,
+            //   stagger culling periods so that lag spikes do not build up.
+			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
+			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
+			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
+			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+		}
+		if (RollingMaxTime > TimerLoadThreshold) {
+			TimerIncrement = MaxTimerIncrement;
+		}
+		else {
+			TimerIncrement = MinTimerIncrement;
+		}
+		RollingTotalTime = 0;
+		RollingMaxTime = 0;
+	}
+}
+
+void ACullingController::Cull() {
+	if ((TotalTicks % CullingPeriod) == 0) {
+		UpdateCharacterBounds();
+		PopulateBundles();
+		CullWithCache();
+		CullWithSpheres();
+		CullWithCuboids();
+	}
+	// SendLocations(); // Moved to BenchmarkCull to not affect runtime statistics.
+}
+
 void ACullingController::CullWithCache()
 {
 	BundleQueue2.Reset();
@@ -124,7 +125,12 @@ void ACullingController::CullWithCache()
 	}
 }
 
-void ACullingController::CullRemaining()
+void ACullingController::CullWithSpheres()
+{
+
+}
+
+void ACullingController::CullWithCuboids()
 {
 	for (Bundle B : BundleQueue2) {
 		bool Blocked = false;
@@ -146,6 +152,8 @@ void ACullingController::CullRemaining()
 		}
 	}
 }
+
+
 // Get all faces that sit between a player and an enemy and have a normal pointing outward
 // toward the player, thus skipping redundant back faces.
 void ACullingController::GetFacesBetween(
@@ -344,7 +352,7 @@ bool ACullingController::InFrustum(
 }
 
 // Currently just returns all cuboids.
-// TODO: Implement Bounding Volume Hierarchy's.
+// TODO: Implement search through Bounding Volume Hierarchy.
 TArray<int> ACullingController::GetPossibleOccludingCuboids(Bundle B) {
 	TArray<int> Possible;
 	for (int i = 0; i < Cuboids.Num(); i++) {
