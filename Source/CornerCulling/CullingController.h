@@ -13,11 +13,15 @@ constexpr char CUBOID_F = 6;
 // Number of vertices in a face of a cuboid.
 constexpr char CUBOID_FACE_V = 4;
 // Number of peeks checked to account for latency.
-// Relevant for PossiblePeeks structs.
 constexpr char NUM_PEEKS = 4;
+// Maximum number of characters in a game.
+constexpr char MAX_CHARACTERS = 12;
+// Number of cuboids in each entry of the cuboid cache array.
+constexpr char CUBOID_CACHE_SIZE = 3;
 
 // Quadrilateral face of a cuboid.
-struct Face {
+struct Face
+{
 	FVector Normal;
 	// Indexes of vertices on the perimeter. Counter-clockwise from outside perspective.
 	unsigned char Perimeter [CUBOID_FACE_V];
@@ -91,7 +95,8 @@ struct Face {
 };
 
 // Cuboid defined by 8 vertices.
-struct Cuboid {
+struct Cuboid
+{
 	Face Faces[CUBOID_F];
 	FVector Vertices [CUBOID_V];
 	Cuboid () {}
@@ -104,7 +109,8 @@ struct Cuboid {
 	//	 |  .5--+---4
 	//	 |.'    | .'
 	//	 6------7'
-	Cuboid(TArray<FVector> V) {
+	Cuboid(TArray<FVector> V)
+    {
 		if (V.Num() != CUBOID_V)
         {
 			return;
@@ -141,23 +147,29 @@ struct Sphere
 {
     FVector Center;
     float Radius;
+    Sphere()
+    {
+        Center = FVector();
+        Radius = 100;
+    }
+    Sphere(FVector Loc, float R)
+    {
+        Center = Loc;
+        Radius = R;
+    }
 };
-
-FSphere
 
 // A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
 // If the sphere is only partially occluded, then check against all tight bounding points.
-struct CharacterBounds {
+struct CharacterBounds
+{
 	// Location of character's camera.
 	FVector CameraLocation;
 	// Center of character and bounding spheres.
 	FVector Center;
-	// Sphere that circumscribes the bounding box.
+	// Bounding sphere that circumscribes the bounding box.
 	// Can quickly determine if the entire bounding box is occluded.
-	float OuterRadius = 105;
-	// Sphere that inscribes the bounding box.
-	// Can quickly determine if some of the bounding box is exposed.
-	float InnerRadius = 16;
+	float BoundingSphereRadius = 105;
 	// Divide vertices to skip the bottom half when a payer peeks it from above and vice versa.
 	// This halves the work, but can over-cull if the bottom edge of an enemy is not aligned with the top
 	// and that bottom edge would stick out out when peeking over a chamfered wall.
@@ -167,8 +179,9 @@ struct CharacterBounds {
 	TArray<FVector> TopVertices;
 	// Vertices in bottom half of the bounding volume.
 	TArray<FVector> BottomVertices;
-	CharacterBounds(FVector CL, FTransform T) {
-		CameraLocation = CL;
+	CharacterBounds(FVector CameraLocation, FTransform T)
+    {
+		this->CameraLocation = CameraLocation;
 		Center = T.GetTranslation();
 		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, 100)));
 		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, 100)));
@@ -182,37 +195,14 @@ struct CharacterBounds {
 	CharacterBounds() {}
 };
 
-// Corners of the rectangle encompassing a player's possible peeks on an enemy.
-// Inaccurate on very wide enemies, as the most aggressive angle to peek
-// the left of an enemy is actually perpendicular to the leftmost point
-// of the enemy, not its center.
-// When facing along the vector from player to enemy, Corners are indexed
-// starting from the top right, proceeding counter-clockwise.
-struct PossiblePeeks {
-	TArray<FVector> Corners;
-	PossiblePeeks() {}
-	PossiblePeeks(
-		FVector PlayerLocation,
-	    FVector EnemyLocation,
-		float MaxDeltaHorizontal,
-		float MaxDeltaVertical
-	) {
-		FVector PlayerToEnemy = (EnemyLocation - PlayerLocation).GetSafeNormal(1e-6);
-		// Horizontal vector is parallel to the XY plane and is perpendicular to PlayerToEnemy.
-		FVector Horizontal = MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
-		FVector Vertical = FVector(0, 0, MaxDeltaVertical);
-		Corners.Emplace(PlayerLocation + Horizontal + Vertical);
-		Corners.Emplace(PlayerLocation - Horizontal + Vertical);
-		Corners.Emplace(PlayerLocation - Horizontal - Vertical);
-		Corners.Emplace(PlayerLocation + Horizontal - Vertical);
-	}
-};
-
-// Bundle representing all lines of sight between a player's possible peeks and an enemy's bounds.
-struct Bundle {
+// Bundle representing lines of sight between a player's possible peeks
+// and an enemy's bounds.
+struct Bundle
+{
 	unsigned char PlayerI;
 	unsigned char EnemyI;
-	Bundle(int i, int j) {
+	Bundle(int i, int j)
+    {
 		PlayerI = i;
 		EnemyI = j;
 	}
@@ -225,11 +215,6 @@ UCLASS()
 class ACullingController : public AInfo
 {
 	GENERATED_BODY()
-
-	// Maximum number of characters in a game.
-	#define MAX_CHARACTERS 12
-	// Number of cuboids in each entry of the cuboid cache array.
-	#define CUBOID_CACHE_SIZE 3
 	// Keeps track of playable characters.
 	TArray<ACornerCullingCharacter*> Characters;
 	// Tracks if each character is alive.
@@ -246,8 +231,11 @@ class ACullingController : public AInfo
 	TArray<Cuboid> Cuboids;
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
-	// Queue of bundles needing to be culled.
-	// First queue is fed into CullWithCache; leftovers are culled from second.
+	// Queues of line-of-sight bundles needing to be culled.
+    // The two queues alternate as input and output of a CullWith...() function.
+    // For example, CullWithCache takes input from BundleQueue,
+    // and outputs unculled bundles into BundleQueue2.
+    // Then CullWithSpheres takes input from BundleQueue2, etc.
 	TArray<Bundle> BundleQueue;
 	TArray<Bundle> BundleQueue2;
 	// Used to find duplicate edges when merging faces.
@@ -290,17 +278,34 @@ class ACullingController : public AInfo
 	// Store overall average culling time (in microseconds)
 	int TotalTime = 0;
 
-	// Update bounding volumes of characters according to their transformation.
+	// Updates bounding volumes of characters according to their transformation.
 	// Can be changed to include changes in gun length.
 	void UpdateCharacterBounds();
-	// Calculate all LOS bundles and add them to the queue.
+	// Calculates all LOS bundles and add them to the queue.
 	void PopulateBundles();
-	// Cull all bundles with each player's cache of occluders.
+	// Culls all bundles with each player's cache of occluders.
 	void CullWithCache();
-	// Cull queued bundles with occluding spheres.
+	// Culls queued bundles with occluding spheres.
 	void CullWithSpheres();
-	// Cull queued bundles with occluding cuboids.
+	// Culls queued bundles with occluding cuboids.
 	void CullWithCuboids();
+	// Gets indices of cuboids that could block LOS between the player and enemy
+    // in the Bundle.
+	TArray<int> GetPossibleOccludingCuboids(Bundle B);
+    // Gets corners of the rectangle encompassing a player's possible peeks
+    // on an enemy--in the plane normal to the line of sight.
+    // When facing along the vector from player to enemy, Corners are indexed
+    // starting from the top right, proceeding counter-clockwise.
+    // NOTE:
+    //   Inaccurate on very wide enemies, as the most aggressive angle to peek
+    //   the left of an enemy is actually perpendicular to the leftmost point
+    //   of the enemy, not its center.
+    TArray<FVector> GetPossiblePeeks(
+        FVector PlayerCameraLocation,
+        FVector EnemyLocation,
+		float MaxDeltaHorizontal,
+		float MaxDeltaVertical
+    );
 	// Get all faces that sit between a player and an enemy and have a normal pointing outward
 	// toward the player, thus skipping redundant back faces.
 	void GetFacesBetween(
@@ -309,7 +314,6 @@ class ACullingController : public AInfo
 		const Cuboid& OccludingCuboid,
 		TArray<Face>& FacesBetween
 	);
-
 	// Get the shadow frustum. Given a point light shining on a polyhedron,
 	// the shadow frustum is comprised of all planes bordering the dark region.
 	// Formally, the shadow frustum is comprised of all planes defined by the
@@ -332,24 +336,17 @@ class ACullingController : public AInfo
 		const TArray<Face>& FacesBetween,
 		TArray<FPlane>& ShadowFrustum
 	);
-
+	// Check if a Sphere blocks all lines of sight between a player's possible
+	// peeks and points in an enemy's bounding box, stored in a bundle.
+	bool IsBlocking(const Bundle& B, Sphere& OccludingSphere);
 	// Check if a Cuboid blocks all lines of sight between a player's possible
 	// peeks and points in an enemy's bounding box, stored in a bundle.
 	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
-
 	// Check if all points are in the frustum defined by the planes.
-	bool InFrustum(
-		const TArray<FVector>& Points,
-		const TArray<FPlane>& Planes
-	);
-
-	// Get all indices of cuboids that could block LOS between the player and enemy in the bundle.
-	TArray<int> GetPossibleOccludingCuboids(Bundle B);
-
+	bool InFrustum(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
 	// For all pairs of characters, if character i should be visible to j,
 	// then send j's location to i.
 	void SendLocations();
-
 	// Send location of character j to character i.
 	void SendLocation(int i, int j);
 
@@ -365,7 +362,8 @@ public:
 	void BenchmarkCull();
 
 	// Mark a vector. For debugging.
-	static inline void MarkFVector(UWorld* World, const FVector& V) {
+	static inline void MarkFVector(UWorld* World, const FVector& V)
+    {
 		DrawDebugLine(World, V, V + FVector(0, 0, 100), FColor::Red, false, 0.1f, 0, 2.f);
 	}
 	
@@ -383,11 +381,14 @@ public:
 	}
 
     // Get the index of the minimum element in an array.
-	static inline int ArgMin(int A[], int Length) {
+	static inline int ArgMin(int A[], int Length)
+    {
 		int Min = INT_MAX;
 		int MinI = 0;
-		for (int i = 0; i < Length; i++) {
-			if (A[i] < Min) {
+		for (int i = 0; i < Length; i++)
+        {
+			if (A[i] < Min)
+            {
 				Min = A[i];
 				MinI = i;
 			}

@@ -12,10 +12,10 @@ class AOccludingCuboid : public AActor
 {
 	 GENERATED_BODY()
 
-	// Counts ticks to not cull every tick.
+	// Counts ticks to not draw every tick.
 	int TickCount = 0;
 	// Frames between draw calls.
-	int DrawPeriod = 500;
+	int DrawPeriod = 60;
 
 public:	
 	// Vectors that define the vertices of the cuboid.
