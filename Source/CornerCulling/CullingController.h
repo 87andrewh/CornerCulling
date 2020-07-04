@@ -258,7 +258,7 @@ class ACullingController : public AInfo
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
 	int MinTimerIncrement = 10;
 	// Bigger increment for when the server is under heavy load.
-	int MaxTimerIncrement = 20;
+	int MaxTimerIncrement = 18;
 	int TimerIncrement = MinTimerIncrement;
 	// If the rolling max time to cull exceeds the threshold, set TimerIncrement to
 	// MaxTimerIncrement. Else set it to MinTimerIncrement.
@@ -306,13 +306,12 @@ class ACullingController : public AInfo
 		float MaxDeltaHorizontal,
 		float MaxDeltaVertical
     );
-	// Get all faces that sit between a player and an enemy and have a normal pointing outward
+	// Gets all faces that sit between a player and an enemy and have a normal pointing outward
 	// toward the player, thus skipping redundant back faces.
-	void GetFacesBetween(
+	TArray<Face> GetFacesBetween(
 		const FVector& PlayerCameraLocation,
 		const FVector& EnemyCenter,
-		const Cuboid& OccludingCuboid,
-		TArray<Face>& FacesBetween
+		const Cuboid& OccludingCuboid
 	);
 	// Get the shadow frustum. Given a point light shining on a polyhedron,
 	// the shadow frustum is comprised of all planes bordering the dark region.
@@ -336,18 +335,20 @@ class ACullingController : public AInfo
 		const TArray<Face>& FacesBetween,
 		TArray<FPlane>& ShadowFrustum
 	);
-	// Check if a Sphere blocks all lines of sight between a player's possible
+	// Checks if a Sphere blocks all lines of sight between a player's possible
 	// peeks and points in an enemy's bounding box, stored in a bundle.
 	bool IsBlocking(const Bundle& B, Sphere& OccludingSphere);
-	// Check if a Cuboid blocks all lines of sight between a player's possible
+	// Checks if a Cuboid blocks all lines of sight between a player's possible
 	// peeks and points in an enemy's bounding box, stored in a bundle.
 	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
-	// Check if all points are in the frustum defined by the planes.
-	bool InFrustum(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
-	// For all pairs of characters, if character i should be visible to j,
-	// then send j's location to i.
+    // For each plane, define a half-space by the set of all points
+    // with a positive dot product with its normal vector.
+    // Checks that every point is within all half-spaces.
+	bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
+	// Sends character j's location to character i for all (i, j) pairs
+    // if character j is visible to character i.
 	void SendLocations();
-	// Send location of character j to character i.
+	// Sends character j's location to character i.
 	void SendLocation(int i, int j);
 
 protected:

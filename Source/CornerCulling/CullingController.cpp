@@ -106,8 +106,10 @@ void ACullingController::BenchmarkCull()
 	}
 }
 
-void ACullingController::Cull() {
-	if ((TotalTicks % CullingPeriod) == 0) {
+void ACullingController::Cull()
+{
+	if ((TotalTicks % CullingPeriod) == 0)
+    {
 		UpdateCharacterBounds();
 		PopulateBundles();
 		CullWithCache();
@@ -208,12 +210,12 @@ TArray<FVector> ACullingController::GetPossiblePeeks(
 
 // Get all faces that sit between a player and an enemy and have a normal pointing outward
 // toward the player, thus skipping redundant back faces.
-void ACullingController::GetFacesBetween(
+TArray<Face> ACullingController::GetFacesBetween(
 	const FVector& PlayerCameraLocation,
 	const FVector& EnemyCenter,
-	const Cuboid& OccludingCuboid,
-	TArray<Face>& FacesBetween)
+	const Cuboid& OccludingCuboid)
 {
+    TArray<Face> FacesBetween;
 	for (int i = 0; i < CUBOID_F; i++)
     {
 		Face F = OccludingCuboid.Faces[i];
@@ -226,6 +228,7 @@ void ACullingController::GetFacesBetween(
 			FacesBetween.Emplace(F);
 		}
 	}
+    return FacesBetween;
 }
 
 // Gets the shadow frustum's planes, which are defined by three points:
@@ -250,7 +253,6 @@ void ACullingController::GetShadowFrustum(
 	// Add all perimeter edges of all faces to the EdgeSet.
 	for (const Face& F : FacesBetween)
     {
-		// Unrolled for speed. Could try optimizing further.
 		EdgeSet[F.Perimeter[0]][F.Perimeter[1]] = true;
 		EdgeSet[F.Perimeter[1]][F.Perimeter[2]] = true;
 		EdgeSet[F.Perimeter[2]][F.Perimeter[3]] = true;
@@ -268,23 +270,11 @@ void ACullingController::GetShadowFrustum(
 		// If edge (j, i) is not present, create a plane with (i, j).
 		if (!EdgeSet[V1][V0])
         {
-			// TODO: Remove dead visualization code.
-
-			//FVector u = OccludingCuboid.Vertices[V0] + FVector(0, 0, 10);
-			//FVector v = OccludingCuboid.Vertices[V1] + FVector(0, 0, 10);
-			//DrawDebugDirectionalArrow(GetWorld(), u, v, 100.f, FColor::Red, false, 0.2f);
 			ShadowFrustum.Emplace(FPlane(
 				PlayerCameraLocation,
 				OccludingCuboid.Vertices[V0],
 				OccludingCuboid.Vertices[V1]
 			));
-			//FPlane P = FPlane(
-			//	PlayerCameraLocation,
-			//	OccludingCuboid.Vertices[V0],
-			//	OccludingCuboid.Vertices[V1]
-			//);
-			//FVector Start = (OccludingCuboid.Vertices[V0] + OccludingCuboid.Vertices[V1])/2;
-			//DrawDebugDirectionalArrow(GetWorld(), Start, Start + 100 * P, 100.f, FColor::Red, false, 0.2f);
 		}
 		if (!EdgeSet[V2][V1])
         {
@@ -328,69 +318,77 @@ bool ACullingController::IsBlocking(const Bundle& B, Sphere& OccludingSphere)
 // Return whether all potential peeks are blocked.
 bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
-	FVector& PlayerCameraLocation = Bounds[B.PlayerI].CameraLocation;
-	CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-	FVector& EnemyCenter = EnemyBounds.Center;
-	float EnemyRadius = EnemyBounds.BoundingSphereRadius;
-	TArray<FVector> Peeks = PossiblePeeks(
-		PlayerCameraLocation,
-		EnemyCenter, 
-		20.0f,  // Maximum horizontal displacement
-		5.0f  // Maximum vertical displacement
-	).Corners;
-	// Shadow frustum for each possible peek.
-	TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
-	// Marks if we have to check visibility with the enemy bounding box
-	// on a peek because bounding sphere checks were inconclusive.
-	bool CheckBox[NUM_PEEKS] = { false };
-	// For every peek:
-	for (int i = 0; i < NUM_PEEKS; i++) {
-		TArray<Face> FacesBetween;
-		// Get the faces of the cuboid that are visible to the player at Peeks[i]
+    FVector& PlayerCameraLocation = Bounds[B.PlayerI].CameraLocation;
+    CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
+    FVector& EnemyCenter = EnemyBounds.Center;
+    float EnemyRadius = EnemyBounds.BoundingSphereRadius;
+    // TODO: Make displacement a function of latency and game state.
+    TArray<FVector> Peeks = GetPossiblePeeks(
+        PlayerCameraLocation,
+        EnemyCenter,
+        20.0f,  // Maximum horizontal displacement
+        5.0f  // Maximum vertical displacement
+    );
+    // Shadow frustum for each possible peek.
+    TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
+    for (int i = 0; i < NUM_PEEKS; i++)
+    {
+        // Get the faces of the cuboid that are visible to the player at Peeks[i]
         // and in between the player at Peeks[i] and the enemy.
-		GetFacesBetween(Peeks[i], EnemyBounds.Center, OccludingCuboid, FacesBetween);
-		if (FacesBetween.Num() > 0) {
-			GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
-			// Try to determine visibility with quick bounding sphere checks.
-			for (FPlane& P : ShadowFrustums[i]) {
-				// Signed distance from enemy to plane.
+        TArray<Face> FacesBetween = GetFacesBetween(
+            Peeks[i], EnemyBounds.Center, OccludingCuboid
+        );
+        if (FacesBetween.Num() > 0)
+        {
+            GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
+            // Planes of the shadow frustum that clip the enemy bounding sphere
+            TArray<FPlane> ClippingPlanes;
+            // Try to determine visibility with quick bounding sphere checks.
+            for (FPlane& P : ShadowFrustums[i])
+            {
+                // Signed distance from enemy to plane.
                 // The direction of the plane's normal vector is negative.
-				float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
-				// The bounding sphere is in the inner half space of this plane.
-				if (EnemyDistanceToPlane > EnemyRadius) {
-					continue;
-				// Use the bounding box to determine if the enemy is blocked.
-				} else {
-					CheckBox[i] = true;
-				}
-			}
-		// There are no faces between the player and enemy.
-		// Thus the cuboid cannot block LOS.
-		} else {
-			return false;
-		}
-	}
-	// If the the peek is inconclusive, then check if the vertices of the
-	// enemy's bounding box lie within the shadow frustum of the peek.
-	// Because each bottom vertex is directly below a top vertex,
-	// we do not need to check bottom vertices when peeking from above.
-	// Similarly, we do not need to check top vertices when peeking from below.
-	// To reiterate, peeks 0 and 1 are from above; 2 and 3 are from below.
-	if (CheckBox[0] && !InFrustum(EnemyBounds.TopVertices, ShadowFrustums[0]))
-		return false;
-	if (CheckBox[1] && !InFrustum(EnemyBounds.TopVertices, ShadowFrustums[1]))
-		return false;
-	if (CheckBox[2] && !InFrustum(EnemyBounds.BottomVertices, ShadowFrustums[2]))
-		return false;
-	if (CheckBox[3] && !InFrustum(EnemyBounds.BottomVertices, ShadowFrustums[3]))
-		return false;
+                float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
+                // The bounding sphere is in the inner half space of this plane.
+                if (EnemyDistanceToPlane > EnemyRadius)
+                {
+                    continue;
+                    // Use the bounding box to determine if the enemy is blocked.
+                }
+                else {
+                    ClippingPlanes.Emplace(P);
+                }
+            }
+            // Check if the vertices of the enemy bounding box are in all half spaces
+            // defined by clipping planes.
+            // Because each bounding box bottom vertex is directly below a top vertex,
+            // we do not need to check bottom vertices when peeking from above.
+            // Likewise for top vertices.
+            if (   (i < 2)
+                && !InHalfSpaces(EnemyBounds.TopVertices, ClippingPlanes))
+            {
+            	return false;
+            }
+            if (   (i >= 2)
+                && !InHalfSpaces(EnemyBounds.BottomVertices, ClippingPlanes))
+            {
+            	return false;
+            }
+            // There are no faces between the player and enemy.
+            // Thus the cuboid cannot block LOS.
+        }
+        // No faces between the player and enemy. The cuboid cannot block LOS.
+        else {
+            return false;
+        }
+    }
 	return true;
 }
 
-// Check if all points are in the frustum defined by the planes
-// by checking that no point is on the same side of any plane
-// as its normal vector.
-bool ACullingController::InFrustum(
+// For each plane, define a half-space by the set of all points
+// with a positive dot product with its normal vector.
+// Check that every point is within all half-spaces.
+bool ACullingController::InHalfSpaces(
 	const TArray<FVector>& Points,
 	const TArray<FPlane>& Planes)
 {
@@ -412,14 +410,13 @@ bool ACullingController::InFrustum(
 // TODO: Implement search through Bounding Volume Hierarchy.
 TArray<int> ACullingController::GetPossibleOccludingCuboids(Bundle B)
 {
-	TArray<int> Possible;
+	TArray<int> PossibleOccluders;
 	for (int i = 0; i < Cuboids.Num(); i++)
     {
-		Possible.Emplace(i);
+		PossibleOccluders.Emplace(i);
 	}
-	return Possible;
+	return PossibleOccluders;
 }
-
 
 void ACullingController::SendLocations()
 {

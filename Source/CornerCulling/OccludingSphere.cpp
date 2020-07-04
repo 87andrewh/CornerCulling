@@ -31,7 +31,8 @@ void AOccludingSphere::Tick(float DeltaTime)
 	Update();
 }
 
-void AOccludingSphere::Update() {
+void AOccludingSphere::Update()
+{
 	FTransform T = GetTransform();
     FVector Scale = GetActorScale3D();
     Scale.X = Scale.Z;
