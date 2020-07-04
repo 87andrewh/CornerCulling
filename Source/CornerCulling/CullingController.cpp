@@ -31,28 +31,19 @@ void ACullingController::BeginPlay()
     }
 }
 
-void ACullingController::UpdateCharacterBounds()
-{
-	Bounds.Reset();
-	for (int i = 0; i < Characters.Num(); i++)
-    {
-		if (IsAlive[i])
-        {
-			Bounds.Emplace(CharacterBounds(
-				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
-				Characters[i]->GetActorTransform()
-			));
-		}
-	}
-}
-
 void ACullingController::PopulateBundles()
 {
 	BundleQueue.Reset();
+    Bounds.Reset();
 	for (int i = 0; i < Characters.Num(); i++)
     {
 		if (IsAlive[i])
         {
+            // Update character i's bounds.
+			Bounds.EmplaceAt(i, CharacterBounds(
+				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
+				Characters[i]->GetActorTransform()
+			));
 			for (int j = 0; j < Characters.Num(); j++)
             {
 				if (VisibilityTimers[i][j] > 0)
@@ -110,7 +101,6 @@ void ACullingController::Cull()
 {
 	if ((TotalTicks % CullingPeriod) == 0)
     {
-		UpdateCharacterBounds();
 		PopulateBundles();
 		CullWithCache();
 		CullWithSpheres();

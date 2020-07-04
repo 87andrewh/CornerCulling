@@ -192,7 +192,7 @@ struct CharacterBounds
 		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, -100)));
 		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, -100)));
 	}
-	CharacterBounds() {}
+	CharacterBounds() { }
 };
 
 // Bundle representing lines of sight between a player's possible peeks
@@ -218,6 +218,8 @@ class ACullingController : public AInfo
 	// Keeps track of playable characters.
 	TArray<ACornerCullingCharacter*> Characters;
 	// Tracks if each character is alive.
+    // TODO:
+    //  Integrate with Character class to update status.
 	TArray<bool> IsAlive;
 	// Tracks team of each character.
 	TArray<char> Teams;
@@ -278,9 +280,6 @@ class ACullingController : public AInfo
 	// Store overall average culling time (in microseconds)
 	int TotalTime = 0;
 
-	// Updates bounding volumes of characters according to their transformation.
-	// Can be changed to include changes in gun length.
-	void UpdateCharacterBounds();
 	// Calculates all LOS bundles and add them to the queue.
 	void PopulateBundles();
 	// Culls all bundles with each player's cache of occluders.
