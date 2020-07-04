@@ -192,7 +192,6 @@ struct CharacterBounds
 		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, -100)));
 		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, -100)));
 	}
-	CharacterBounds() { }
 };
 
 // Bundle representing lines of sight between a player's possible peeks
@@ -201,10 +200,12 @@ struct Bundle
 {
 	unsigned char PlayerI;
 	unsigned char EnemyI;
-	Bundle(int i, int j)
+    TArray<FVector> PossiblePeeks;
+	Bundle(int i, int j, const TArray<FVector>& Peeks)
     {
 		PlayerI = i;
 		EnemyI = j;
+        PossiblePeeks = Peeks;
 	}
 };
 

@@ -33,17 +33,25 @@ void ACullingController::BeginPlay()
 
 void ACullingController::PopulateBundles()
 {
-	BundleQueue.Reset();
+    // First update character bounds.
     Bounds.Reset();
-	for (int i = 0; i < Characters.Num(); i++)
+    for (int i = 0; i < Characters.Num(); i++)
     {
-		if (IsAlive[i])
+        if (IsAlive[i])
         {
             // Update character i's bounds.
 			Bounds.EmplaceAt(i, CharacterBounds(
 				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
 				Characters[i]->GetActorTransform()
 			));
+        }
+    }
+    // Then update bundles.
+	BundleQueue.Reset();
+	for (int i = 0; i < Characters.Num(); i++)
+    {
+		if (IsAlive[i])
+        {
 			for (int j = 0; j < Characters.Num(); j++)
             {
 				if (VisibilityTimers[i][j] > 0)
@@ -51,8 +59,21 @@ void ACullingController::PopulateBundles()
 					VisibilityTimers[i][j]--;
 				}
 				if (IsAlive[j] && (Teams[i] != Teams[j]) && (VisibilityTimers[i][j] == 0))
-                {
-					BundleQueue.Emplace(Bundle(i, j));
+                {   
+                    // TODO:
+                    //   Make displacement a function of latency and game state.
+					BundleQueue.Emplace(
+                        Bundle(
+                            i,
+                            j,
+                            GetPossiblePeeks(
+                                Bounds[i].CameraLocation,
+                                Bounds[j].Center,
+                                20,  // Maximum horizontal displacement
+                                10   // Maximum vertical displacement
+                            )
+                        )
+                    );
 				}
 			}
 		}
@@ -308,25 +329,19 @@ bool ACullingController::IsBlocking(const Bundle& B, Sphere& OccludingSphere)
 // Return whether all potential peeks are blocked.
 bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
-    FVector& PlayerCameraLocation = Bounds[B.PlayerI].CameraLocation;
-    CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-    FVector& EnemyCenter = EnemyBounds.Center;
-    float EnemyRadius = EnemyBounds.BoundingSphereRadius;
-    // TODO: Make displacement a function of latency and game state.
-    TArray<FVector> Peeks = GetPossiblePeeks(
-        PlayerCameraLocation,
-        EnemyCenter,
-        20.0f,  // Maximum horizontal displacement
-        5.0f  // Maximum vertical displacement
-    );
+    // Unpack constant variables outside of loop for performance.
+    const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
+    const FVector& EnemyCenter = EnemyBounds.Center;
+    const TArray<FVector>& Peeks = B.PossiblePeeks;
+    const float EnemyRadius = EnemyBounds.BoundingSphereRadius;
     // Shadow frustum for each possible peek.
     TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
     for (int i = 0; i < NUM_PEEKS; i++)
     {
-        // Get the faces of the cuboid that are visible to the player at Peeks[i]
-        // and in between the player at Peeks[i] and the enemy.
+        // Get the faces of the cuboid that are visible to the player at
+        // Peeks[i] and in between the player at Peeks[i] and the enemy.
         TArray<Face> FacesBetween = GetFacesBetween(
-            Peeks[i], EnemyBounds.Center, OccludingCuboid
+            Peeks[i], EnemyCenter, OccludingCuboid
         );
         if (FacesBetween.Num() > 0)
         {
@@ -345,7 +360,8 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
                     continue;
                     // Use the bounding box to determine if the enemy is blocked.
                 }
-                else {
+                else
+                {
                     ClippingPlanes.Emplace(P);
                 }
             }
@@ -368,7 +384,8 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
             // Thus the cuboid cannot block LOS.
         }
         // No faces between the player and enemy. The cuboid cannot block LOS.
-        else {
+        else
+        {
             return false;
         }
     }
