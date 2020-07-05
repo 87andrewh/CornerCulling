@@ -31,9 +31,7 @@ By accounting for latency, we can also afford to speed up average culling time b
 The last big tip is to keep enemies revealed for a few culling cycles. It is expensive when all polyhedra failed to occlude an enemy, especially if many of them barely failed. Keeping enemies revealed for ~200 ms does not confer a big advantage to wallhackers, but could save CPU cycles. This timer can adapt to server load.
                
 ## Priority Tasks
-- Implement occluding spheres
 - Implement bounding volume hierarchy
-- Explore plane masking, testing bounding boxes only against shadow frustum planes that clipped bounding spheres.
 
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
