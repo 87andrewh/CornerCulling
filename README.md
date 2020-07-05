@@ -2,7 +2,7 @@
 Fast, maximally accurate, and latency resistant culling method.  
 Proof of concept in C++ and UE4. Wallhack Penicillin.  
 Calculates lines of sight from possible (due to latency) locations of players to the corners of the bounding volumes of enemies,
-determining if they intersect with the bounding volumes of occluding objects. Analytical approach to raycasts.
+determining if they intersect with occluding objects.
 #### Latest Demo
 https://youtu.be/K8jm5evnPiY
 
@@ -35,20 +35,14 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
 
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
-- Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
-- Research out to fraud detection experts and anti-cheat developers in other industries.
-- Reach out to more FPS game developers, as well as executives.
+- Reach out to graphics experts for review
 - Continue researching graphics community state of the art.
-- Design optimizations for large Battle Royale type games.
-  No culling until enough players die. PVS filter players. Only cull accurately up close.
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
   We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
-  Say, have a midpoint on each edge. If it and one of its neighbors are occluded, throw away the neighbor.
-  Alternatively, think of subviding one bounding box into many, and cull those individually.
-  Still, this seems like a it of extra work (to code, possible during runtime) for a niche situation. 
-- Consider sending fake enemy locations.
+  Alternatively, subdivide one bounding box into many, and cull those individually.
+- Consider sending fake enemy locations to throw off cheaters.
 
 ## Research
 
