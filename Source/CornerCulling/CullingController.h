@@ -147,15 +147,16 @@ struct Sphere
 {
     FVector Center;
     float Radius;
-    Sphere()
-    {
-        Center = FVector();
-        Radius = 100;
-    }
+    Sphere() { }
     Sphere(FVector Loc, float R)
     {
         Center = Loc;
         Radius = R;
+    }
+    Sphere(const Sphere& S)
+    {
+        Center = S.Center;
+        Radius = S.Radius;
     }
 };
 

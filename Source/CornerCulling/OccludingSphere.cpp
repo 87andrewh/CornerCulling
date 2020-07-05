@@ -19,27 +19,22 @@ AOccludingSphere::AOccludingSphere()
 void AOccludingSphere::BeginPlay()
 {
 	Super::BeginPlay();
-	SetActorTickEnabled(false);
-    OccludingSphere = Sphere(FVector(0, 0, 0), 100);
-	Update();
 }
 
 void AOccludingSphere::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	TickCount++;
 	Update();
 }
 
 void AOccludingSphere::Update()
 {
-	FTransform T = GetTransform();
     FVector Scale = GetActorScale3D();
     Scale.X = Scale.Z;
     Scale.Y = Scale.Z;
-    OccludingSphere.Center = T.TransformPosition(OccludingSphere.Center);
-    OccludingSphere.Radius = OccludingSphere.Radius * Scale.Z;
-	T = FTransform(T.Rotator(), T.GetTranslation(), Scale);
+    // 100 is the base mesh's radius.
+    Radius = 50 * Scale.Z;
+	FTransform T = FTransform(GetActorRotation(), GetActorLocation(), Scale);
     SetActorTransform(T);
 }
 

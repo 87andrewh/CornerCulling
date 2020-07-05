@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CullingController.h"
-#include "CornerCullingCharacter.h"
 #include "OccludingCuboid.h"
+#include "OccludingSphere.h"
 #include "EngineUtils.h" // TActorRange
 #include <chrono> 
 
@@ -28,6 +28,10 @@ void ACullingController::BeginPlay()
     for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
 		Cuboids.Add(Cuboid(Occluder->Vectors));
+    }
+    for (AOccludingSphere* Occluder : TActorRange<AOccludingSphere>(GetWorld()))
+    {
+        Spheres.Add(Sphere(Occluder->GetActorLocation(), Occluder->Radius));
     }
 }
 
@@ -110,7 +114,8 @@ void ACullingController::BenchmarkCull()
         {
 			TimerIncrement = MaxTimerIncrement;
 		}
-		else {
+		else
+        {
 			TimerIncrement = MinTimerIncrement;
 		}
 		RollingTotalTime = 0;
@@ -219,8 +224,80 @@ TArray<FVector> ACullingController::GetPossiblePeeks(
     return Corners;
 }
 
-// Get all faces that sit between a player and an enemy and have a normal pointing outward
-// toward the player, thus skipping redundant back faces.
+
+// Checks if the Cuboid blocks visibility between a bundle's player and enemy.
+// For each of the most aggressive peeks a player camera could perform on
+// the enemy within the latency period:
+//   Try to use the enemy's bounding spheres to quickly check visibility.
+//   If visibility is still ambiguous, check all points of the bounding box.
+// Return whether all potential peeks are blocked.
+bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
+{
+    // Unpack constant variables outside of loop for performance.
+    const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
+    const FVector& EnemyCenter = EnemyBounds.Center;
+    const TArray<FVector>& Peeks = B.PossiblePeeks;
+    const float EnemyRadius = EnemyBounds.BoundingSphereRadius;
+    // Shadow frustum for each possible peek.
+    TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
+    for (int i = 0; i < NUM_PEEKS; i++)
+    {
+        // Get the faces of the cuboid that are visible to the player at
+        // Peeks[i] and in between the player at Peeks[i] and the enemy.
+        TArray<Face> FacesBetween = GetFacesBetween(
+            Peeks[i], EnemyCenter, OccludingCuboid
+        );
+        if (FacesBetween.Num() > 0)
+        {
+            GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
+            // Planes of the shadow frustum that clip the enemy bounding sphere
+            TArray<FPlane> ClippingPlanes;
+            // Try to determine visibility with quick bounding sphere checks.
+            for (FPlane& P : ShadowFrustums[i])
+            {
+                // Signed distance from enemy to plane.
+                // The direction of the plane's normal vector is negative.
+                float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
+                // The bounding sphere is in the inner half space of this plane.
+                if (EnemyDistanceToPlane > EnemyRadius)
+                {
+                    continue;
+                    // Use the bounding box to determine if the enemy is blocked.
+                }
+                else
+                {
+                    ClippingPlanes.Emplace(P);
+                }
+            }
+            // Check if the vertices of the enemy bounding box are in all half spaces
+            // defined by clipping planes.
+            // Because each bounding box bottom vertex is directly below a top vertex,
+            // we do not need to check bottom vertices when peeking from above.
+            // Likewise for top vertices.
+            if (   (i < 2)
+                && !InHalfSpaces(EnemyBounds.TopVertices, ClippingPlanes))
+            {
+            	return false;
+            }
+            if (   (i >= 2)
+                && !InHalfSpaces(EnemyBounds.BottomVertices, ClippingPlanes))
+            {
+            	return false;
+            }
+            // There are no faces between the player and enemy.
+            // Thus the cuboid cannot block LOS.
+        }
+        // No faces between the player and enemy. The cuboid cannot block LOS.
+        else
+        {
+            return false;
+        }
+    }
+	return true;
+}
+
+// Gets all faces between player and enemy that have a normal pointing
+// toward the player, thus ignoring non-visible back faces.
 TArray<Face> ACullingController::GetFacesBetween(
 	const FVector& PlayerCameraLocation,
 	const FVector& EnemyCenter,
@@ -315,84 +392,55 @@ void ACullingController::GetShadowFrustum(
 	}
 }
 
-
+// Uses sphere and line segment intersection with formula from:
+// http://paulbourke.net/geometry/circlesphere/index.html#linesphere
 bool ACullingController::IsBlocking(const Bundle& B, Sphere& OccludingSphere)
-{
-    return false;
-}
-
-// Check if the Cuboid blocks visibility between a bundle's player and enemy.
-// For each of the most aggressive peeks a player camera could perform on
-// the enemy within the latency period:
-//   Try to use the enemy's bounding spheres to quickly check visibility.
-//   If visibility is still ambiguous, check all points of the bounding box.
-// Return whether all potential peeks are blocked.
-bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
 {
     // Unpack constant variables outside of loop for performance.
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-    const FVector& EnemyCenter = EnemyBounds.Center;
     const TArray<FVector>& Peeks = B.PossiblePeeks;
-    const float EnemyRadius = EnemyBounds.BoundingSphereRadius;
-    // Shadow frustum for each possible peek.
-    TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
+    const FVector SphereCenter = OccludingSphere.Center;
+    const float RadiusSquared = OccludingSphere.Radius * OccludingSphere.Radius;
     for (int i = 0; i < NUM_PEEKS; i++)
     {
-        // Get the faces of the cuboid that are visible to the player at
-        // Peeks[i] and in between the player at Peeks[i] and the enemy.
-        TArray<Face> FacesBetween = GetFacesBetween(
-            Peeks[i], EnemyCenter, OccludingCuboid
-        );
-        if (FacesBetween.Num() > 0)
+        FVector PlayerToSphere = SphereCenter - Peeks[i];
+        TArray<FVector> Vertices;
+        if (i < 2)
         {
-            GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
-            // Planes of the shadow frustum that clip the enemy bounding sphere
-            TArray<FPlane> ClippingPlanes;
-            // Try to determine visibility with quick bounding sphere checks.
-            for (FPlane& P : ShadowFrustums[i])
-            {
-                // Signed distance from enemy to plane.
-                // The direction of the plane's normal vector is negative.
-                float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
-                // The bounding sphere is in the inner half space of this plane.
-                if (EnemyDistanceToPlane > EnemyRadius)
-                {
-                    continue;
-                    // Use the bounding box to determine if the enemy is blocked.
-                }
-                else
-                {
-                    ClippingPlanes.Emplace(P);
-                }
-            }
-            // Check if the vertices of the enemy bounding box are in all half spaces
-            // defined by clipping planes.
-            // Because each bounding box bottom vertex is directly below a top vertex,
-            // we do not need to check bottom vertices when peeking from above.
-            // Likewise for top vertices.
-            if (   (i < 2)
-                && !InHalfSpaces(EnemyBounds.TopVertices, ClippingPlanes))
-            {
-            	return false;
-            }
-            if (   (i >= 2)
-                && !InHalfSpaces(EnemyBounds.BottomVertices, ClippingPlanes))
-            {
-            	return false;
-            }
-            // There are no faces between the player and enemy.
-            // Thus the cuboid cannot block LOS.
+            Vertices = EnemyBounds.TopVertices;
         }
-        // No faces between the player and enemy. The cuboid cannot block LOS.
         else
         {
-            return false;
+            Vertices = EnemyBounds.BottomVertices;
+        }
+        for (FVector V : Vertices)
+        {
+            FVector PlayerToEnemy = V - Peeks[i];
+            float u = (PlayerToEnemy | PlayerToSphere) / (PlayerToEnemy | PlayerToEnemy);
+            // The point on the (infinite) line between player and enemy that is closest
+            // to the center of the occluding sphere lies between player and enemy.
+            // Thus the sphere might intersect the line segment.
+            if ((0 < u) && (u < 1))
+            {
+                FVector ClosestPoint = Peeks[i] + u * PlayerToEnemy;
+                //MarkFVector(GetWorld(), ClosestPoint);
+                if ((SphereCenter - ClosestPoint).SizeSquared() > RadiusSquared)
+                {
+                    return false;
+                }
+            }
+            // Otherwise, the sphere definitely does not intersect the line segment.
+            else
+            {
+                return false;
+            }
         }
     }
-	return true;
+    return true;
 }
 
-// For each plane, define a half-space by the set of all points
+
+// For each plane, defines a half-space by the set of all points
 // with a positive dot product with its normal vector.
 // Check that every point is within all half-spaces.
 bool ACullingController::InHalfSpaces(
@@ -442,7 +490,7 @@ void ACullingController::SendLocations()
 	}
 }
 
-// Draw a line from character i to j, simulating the sending of a location.
+// Draws a line from character i to j, simulating the sending of a location.
 // TODO: Integrate server location-sending API when deploying to a game.
 void ACullingController::SendLocation(int i, int j)
 {

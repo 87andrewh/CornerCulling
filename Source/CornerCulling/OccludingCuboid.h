@@ -6,7 +6,7 @@
 #include "CullingController.h"
 #include "OccludingCuboid.generated.h"
 
-// Box that occludes vision.
+// Cuboid that occludes vision.
  UCLASS(BlueprintType, Blueprintable)
 class AOccludingCuboid : public AActor
 {
@@ -18,6 +18,7 @@ class AOccludingCuboid : public AActor
 	int DrawPeriod = 60;
 
 public:	
+	AOccludingCuboid();
 	// Vectors that define the vertices of the cuboid.
 	// These are not in a list to enabled editing in UE4.
 	UPROPERTY(EditAnywhere)
@@ -36,12 +37,12 @@ public:
 	FVector V6 = FVector(-200, -200, -200);
 	UPROPERTY(EditAnywhere)
 	FVector V7 = FVector(200, -200, -200);
-
-	AOccludingCuboid();
 	// Vertices of an occluding cuboid.
 	UPROPERTY()
 	TArray<FVector> Vectors = TArray<FVector>();
 	// The occluding cuboid.
+    // NOTE:
+    //   Not passed to CullingController because of UE4's garbage collection.
 	Cuboid OccludingCuboid;
 
 	// Update OccludingCuboid according to the vertices.
