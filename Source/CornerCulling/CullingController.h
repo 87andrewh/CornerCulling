@@ -207,6 +207,25 @@ struct Bundle
 	}
 };
 
+// Axis-Aligned Bounding Box, used by BVH ray tracing acceleration structure.
+struct AABB
+{
+    FVector Min;
+    FVector Max;
+    float HalfSurfaceArea;
+    AABB(const FVector& Min, const FVector& Max)
+    {
+        this->Min = Min;
+        this->Max = Max;
+        FVector Diagonal = Max - Min;
+        HalfSurfaceArea = (
+              Diagonal.X * Diagonal.Y
+            + Diagonal.X * Diagonal.Z
+            + Diagonal.Y * Diagonal.Z
+        );
+    }
+};
+
 /**
  *  Controls all occlusion culling logic.
  */
@@ -261,8 +280,8 @@ class ACullingController : public AInfo
 	// Bigger increment for when the server is under heavy load.
 	int MaxTimerIncrement = 18;
 	int TimerIncrement = MinTimerIncrement;
-	// If the rolling max time to cull exceeds the threshold, set TimerIncrement to
-	// MaxTimerIncrement. Else set it to MinTimerIncrement.
+	// If the rolling max time to cull exceeds the threshold, set TimerIncrement
+	// to MaxTimerIncrement. Else set it to MinTimerIncrement.
 	int TimerLoadThreshold = 1000;
 
 	// How many frames pass between each cull.
@@ -304,8 +323,8 @@ class ACullingController : public AInfo
 		float MaxDeltaHorizontal,
 		float MaxDeltaVertical
     );
-	// Gets all faces that sit between a player and an enemy and have a normal pointing outward
-	// toward the player, thus skipping redundant back faces.
+	// Gets all faces that sit between a player and an enemy and have a normal
+	// pointing out toward the player, thus skipping redundant back faces.
 	TArray<Face> GetFacesBetween(
 		const FVector& PlayerCameraLocation,
 		const FVector& EnemyCenter,

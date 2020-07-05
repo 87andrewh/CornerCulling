@@ -401,16 +401,16 @@ bool ACullingController::IsBlocking(const Bundle& B, const Sphere& OccludingSphe
     for (int i = 0; i < NUM_PEEKS; i++)
     {
         FVector PlayerToSphere = SphereCenter - Peeks[i];
-        TArray<FVector> Vertices;
+        const TArray<FVector>* Vertices;
         if (i < 2)
         {
-            Vertices = EnemyBounds.TopVertices;
+            Vertices = &EnemyBounds.TopVertices;
         }
         else
         {
-            Vertices = EnemyBounds.BottomVertices;
+            Vertices = &EnemyBounds.BottomVertices;
         }
-        for (FVector V : Vertices)
+        for (FVector V : *Vertices)
         {
             FVector PlayerToEnemy = V - Peeks[i];
             float u = (PlayerToEnemy | PlayerToSphere) / (PlayerToEnemy | PlayerToEnemy);
