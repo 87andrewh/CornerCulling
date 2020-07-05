@@ -61,9 +61,10 @@ https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
 http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
 https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
 
-### Fast polyhedra/line intersection
+### Fast geometric intersection algorithms
 https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
 https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
+http://paulbourke.net/geometry/circlesphere/index.html#linesphere
 
 ### Potentially Useful Geomeotry
 https://en.wikipedia.org/wiki/Back-face_culling
