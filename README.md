@@ -2,7 +2,7 @@
 Fast, maximally accurate, and latency resistant culling method.  
 Proof of concept in C++ and UE4. Wallhack Penicillin.  
 Calculates lines of sight from possible (due to latency) locations of players to the corners of the bounding volumes of enemies,
-determining if they intersect with the bounding volumes of occluding objects. Analytical approach to raycasts.
+determining if they intersect with occluding objects.
 #### Latest Demo
 https://youtu.be/K8jm5evnPiY
 
@@ -31,26 +31,18 @@ By accounting for latency, we can also afford to speed up average culling time b
 The last big tip is to keep enemies revealed for a few culling cycles. It is expensive when all polyhedra failed to occlude an enemy, especially if many of them barely failed. Keeping enemies revealed for ~200 ms does not confer a big advantage to wallhackers, but could save CPU cycles. This timer can adapt to server load.
                
 ## Priority Tasks
-- Implement occluding spheres
 - Implement bounding volume hierarchy
-- Explore plane masking, testing bounding boxes only against shadow frustum planes that clipped bounding spheres.
 
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
-- Reach out to graphics experts (professors, article/book/library writers, graphics/CAD engine creators)
-- Research out to fraud detection experts and anti-cheat developers in other industries.
-- Reach out to more FPS game developers, as well as executives.
+- Reach out to graphics experts for review
 - Continue researching graphics community state of the art.
-- Design optimizations for large Battle Royale type games.
-  No culling until enough players die. PVS filter players. Only cull accurately up close.
 - Consider ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
   We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
-  Say, have a midpoint on each edge. If it and one of its neighbors are occluded, throw away the neighbor.
-  Alternatively, think of subviding one bounding box into many, and cull those individually.
-  Still, this seems like a it of extra work (to code, possible during runtime) for a niche situation. 
-- Consider sending fake enemy locations.
+  Alternatively, subdivide one bounding box into many, and cull those individually.
+- Consider sending fake enemy locations to throw off cheaters.
 
 ## Research
 
@@ -69,9 +61,10 @@ https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
 http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
 https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
 
-### Fast polyhedra/line intersection
+### Fast geometric intersection algorithms
 https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
 https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
+http://paulbourke.net/geometry/circlesphere/index.html#linesphere
 
 ### Potentially Useful Geomeotry
 https://en.wikipedia.org/wiki/Back-face_culling
