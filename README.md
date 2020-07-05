@@ -32,6 +32,7 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
                
 ## Priority Tasks
 - Implement bounding volume hierarchy
+- Talk to engineers at Umbra
 
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
@@ -49,6 +50,7 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
 ### Occlusion Culling:  
 http://www.cs.unc.edu/~zhangh/hom.html  
 https://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_.php?page=3  
+https://medium.com/@Umbra3D/introduction-to-occlusion-culling-3d6cfb195c79  
 
 ### Improved bounding boxes (k-dops):  
 https://www.youtube.com/watch?v=h4GBU-NXJ1c  
