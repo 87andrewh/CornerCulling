@@ -15,16 +15,13 @@ ACullingController::ACullingController()
 
 void ACullingController::BeginPlay()
 {
-	// Call the base class  
 	Super::BeginPlay();
-
     for (ACornerCullingCharacter* Player : TActorRange<ACornerCullingCharacter>(GetWorld()))
     {
 		Characters.Add(Player);
 		IsAlive.Emplace(true);
 		Teams.Emplace(Player->Team);
     }
-	// Acquire the prisms of occluding objects.
     for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
 		Cuboids.Add(Cuboid(Occluder->Vectors));
@@ -33,55 +30,6 @@ void ACullingController::BeginPlay()
     {
         Spheres.Add(Sphere(Occluder->GetActorLocation(), Occluder->Radius));
     }
-}
-
-void ACullingController::PopulateBundles()
-{
-    // First update character bounds.
-    Bounds.Reset();
-    for (int i = 0; i < Characters.Num(); i++)
-    {
-        if (IsAlive[i])
-        {
-            // Update character i's bounds.
-			Bounds.EmplaceAt(i, CharacterBounds(
-				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
-				Characters[i]->GetActorTransform()
-			));
-        }
-    }
-    // Then update bundles.
-	BundleQueue.Reset();
-	for (int i = 0; i < Characters.Num(); i++)
-    {
-		if (IsAlive[i])
-        {
-			for (int j = 0; j < Characters.Num(); j++)
-            {
-				if (VisibilityTimers[i][j] > 0)
-                {
-					VisibilityTimers[i][j]--;
-				}
-				if (IsAlive[j] && (Teams[i] != Teams[j]) && (VisibilityTimers[i][j] == 0))
-                {   
-                    // TODO:
-                    //   Make displacement a function of latency and game state.
-					BundleQueue.Emplace(
-                        Bundle(
-                            i,
-                            j,
-                            GetPossiblePeeks(
-                                Bounds[i].CameraLocation,
-                                Bounds[j].Center,
-                                20,  // Maximum horizontal displacement
-                                10   // Maximum vertical displacement
-                            )
-                        )
-                    );
-				}
-			}
-		}
-	}
 }
 
 void ACullingController::BenchmarkCull()
@@ -132,7 +80,75 @@ void ACullingController::Cull()
 		CullWithSpheres();
 		CullWithCuboids();
 	}
-	// SendLocations();  // Moved to BenchmarkCull to not affect runtime statistics.
+	// SendLocations();  // Moved to BenchmarkCull to not affect benchmarks.
+}
+
+void ACullingController::PopulateBundles()
+{
+    // First update character bounds.
+    Bounds.Reset();
+    for (int i = 0; i < Characters.Num(); i++)
+    {
+        if (IsAlive[i])
+        {
+			Bounds.EmplaceAt(i, CharacterBounds(
+				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
+				Characters[i]->GetActorTransform()
+			));
+        }
+    }
+    // Then update bundles.
+	BundleQueue.Reset();
+	for (int i = 0; i < Characters.Num(); i++)
+    {
+		if (IsAlive[i])
+        {
+			for (int j = 0; j < Characters.Num(); j++)
+            {
+				if (VisibilityTimers[i][j] > 0)
+                {
+					VisibilityTimers[i][j]--;
+				}
+				if (IsAlive[j] && (Teams[i] != Teams[j]) && (VisibilityTimers[i][j] == 0))
+                {   
+                    // TODO:
+                    //   Make displacement a function of latency and game state.
+					BundleQueue.Emplace(
+                        Bundle(
+                            i,
+                            j,
+                            GetPossiblePeeks(
+                                Bounds[i].CameraLocation,
+                                Bounds[j].Center,
+                                20,  // Maximum horizontal displacement
+                                10   // Maximum vertical displacement
+                            )
+                        )
+                    );
+				}
+			}
+		}
+	}
+}
+
+TArray<FVector> ACullingController::GetPossiblePeeks(
+    const FVector& PlayerCameraLocation,
+    const FVector& EnemyLocation,
+    float MaxDeltaHorizontal,
+    float MaxDeltaVertical)
+{
+    TArray<FVector> Corners;
+    FVector PlayerToEnemy =
+        (EnemyLocation - PlayerCameraLocation).GetSafeNormal(1e-6);
+	// Displacement parallel to the XY plane and perpendicular to PlayerToEnemy.
+	FVector Horizontal =
+        MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
+	FVector Vertical = FVector(0, 0, MaxDeltaVertical);
+	Corners.Emplace(PlayerCameraLocation + Horizontal + Vertical);
+	Corners.Emplace(PlayerCameraLocation - Horizontal + Vertical);
+	Corners.Emplace(PlayerCameraLocation - Horizontal - Vertical);
+	Corners.Emplace(PlayerCameraLocation + Horizontal - Vertical);
+    return Corners;
 }
 
 void ACullingController::CullWithCache()
@@ -188,7 +204,8 @@ void ACullingController::CullWithCuboids()
 			if (IsBlocking(B, Cuboids[CuboidI]))
             {
 				Blocked = true;
-				int MinI = ArgMin(CacheTimers[B.PlayerI][B.EnemyI], CUBOID_CACHE_SIZE);
+				int MinI =
+                    ArgMin(CacheTimers[B.PlayerI][B.EnemyI], CUBOID_CACHE_SIZE);
 				CuboidCaches[B.PlayerI][B.EnemyI][MinI] = CuboidI;
 				CacheTimers[B.PlayerI][B.EnemyI][MinI] = TotalTicks;
 				break;
@@ -196,34 +213,14 @@ void ACullingController::CullWithCuboids()
 		}
 		if (!Blocked)
         {
-			// Random offset spreads out culling when all characters become visible
-			// to each other at the same time, such as when a smoke fades.
+			// Random offset spreads out culling when all characters become
+			// visible to each other at the same time, such as when walls fall.
 			VisibilityTimers[B.PlayerI][B.EnemyI] = (
-				TimerIncrement + (FMath::Rand() % 2)
+				TimerIncrement + (FMath::Rand() % 3)
 			);
 		}
 	}
 }
-
-
-TArray<FVector> ACullingController::GetPossiblePeeks(
-    FVector PlayerCameraLocation,
-    FVector EnemyLocation,
-    float MaxDeltaHorizontal,
-    float MaxDeltaVertical)
-{
-    TArray<FVector> Corners;
-    FVector PlayerToEnemy = (EnemyLocation - PlayerCameraLocation).GetSafeNormal(1e-6);
-	// Horizontal vector is parallel to the XY plane and is perpendicular to PlayerToEnemy.
-	FVector Horizontal = MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
-	FVector Vertical = FVector(0, 0, MaxDeltaVertical);
-	Corners.Emplace(PlayerCameraLocation + Horizontal + Vertical);
-	Corners.Emplace(PlayerCameraLocation - Horizontal + Vertical);
-	Corners.Emplace(PlayerCameraLocation - Horizontal - Vertical);
-	Corners.Emplace(PlayerCameraLocation + Horizontal - Vertical);
-    return Corners;
-}
-
 
 // Checks if the Cuboid blocks visibility between a bundle's player and enemy.
 // For each of the most aggressive peeks a player camera could perform on
@@ -231,7 +228,7 @@ TArray<FVector> ACullingController::GetPossiblePeeks(
 //   Try to use the enemy's bounding spheres to quickly check visibility.
 //   If visibility is still ambiguous, check all points of the bounding box.
 // Return whether all potential peeks are blocked.
-bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
+bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid)
 {
     // Unpack constant variables outside of loop for performance.
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
@@ -250,37 +247,35 @@ bool ACullingController::IsBlocking(const Bundle& B, Cuboid& OccludingCuboid)
         if (FacesBetween.Num() > 0)
         {
             GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
-            // Planes of the shadow frustum that clip the enemy bounding sphere
-            TArray<FPlane> ClippingPlanes;
+            // Planes of the shadow frustum that define a half space that
+            // does not contain the enemy bounding sphere, and thus must
+            // be checked against the enemy bounding box.
+            TArray<FPlane> PlanesToCheck;
             // Try to determine visibility with quick bounding sphere checks.
             for (FPlane& P : ShadowFrustums[i])
             {
                 // Signed distance from enemy to plane.
                 // The direction of the plane's normal vector is negative.
                 float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
-                // The bounding sphere is in the inner half space of this plane.
-                if (EnemyDistanceToPlane > EnemyRadius)
+                // The bounding sphere is not completely contained by the plane,
+                // so we must check it against the bounding box.
+                if (EnemyDistanceToPlane < EnemyRadius)
                 {
-                    continue;
-                    // Use the bounding box to determine if the enemy is blocked.
-                }
-                else
-                {
-                    ClippingPlanes.Emplace(P);
+                    PlanesToCheck.Emplace(P);
                 }
             }
             // Check if the vertices of the enemy bounding box are in all half spaces
-            // defined by clipping planes.
+            // defined by the planes that failed to contain the bounding sphere.
             // Because each bounding box bottom vertex is directly below a top vertex,
             // we do not need to check bottom vertices when peeking from above.
             // Likewise for top vertices.
             if (   (i < 2)
-                && !InHalfSpaces(EnemyBounds.TopVertices, ClippingPlanes))
+                && !InHalfSpaces(EnemyBounds.TopVertices, PlanesToCheck))
             {
             	return false;
             }
             if (   (i >= 2)
-                && !InHalfSpaces(EnemyBounds.BottomVertices, ClippingPlanes))
+                && !InHalfSpaces(EnemyBounds.BottomVertices, PlanesToCheck))
             {
             	return false;
             }
@@ -310,8 +305,8 @@ TArray<Face> ACullingController::GetFacesBetween(
 		FVector FaceV = OccludingCuboid.GetVertex(i, 0);
 		FVector PlayerToFace = FaceV - PlayerCameraLocation;
 		FVector EnemyToFace = FaceV - EnemyCenter;
-		if (   (FVector::DotProduct(PlayerToFace, F.Normal) < 0)
-			&& (FVector::DotProduct(EnemyToFace, F.Normal) > 0))
+		if (   ((PlayerToFace | F.Normal) < 0)
+			&& ((EnemyToFace | F.Normal) > 0))
         {
 			FacesBetween.Emplace(F);
 		}
@@ -392,9 +387,11 @@ void ACullingController::GetShadowFrustum(
 	}
 }
 
+// Checks sphere intersection for all line segments between
+// a player's possible peeks and the vertices of an enemy's bounding box.
 // Uses sphere and line segment intersection with formula from:
 // http://paulbourke.net/geometry/circlesphere/index.html#linesphere
-bool ACullingController::IsBlocking(const Bundle& B, Sphere& OccludingSphere)
+bool ACullingController::IsBlocking(const Bundle& B, const Sphere& OccludingSphere)
 {
     // Unpack constant variables outside of loop for performance.
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
@@ -417,19 +414,20 @@ bool ACullingController::IsBlocking(const Bundle& B, Sphere& OccludingSphere)
         {
             FVector PlayerToEnemy = V - Peeks[i];
             float u = (PlayerToEnemy | PlayerToSphere) / (PlayerToEnemy | PlayerToEnemy);
-            // The point on the (infinite) line between player and enemy that is closest
-            // to the center of the occluding sphere lies between player and enemy.
+            // The point on the line between player and enemy that is closest to
+            // the center of the occluding sphere lies between player and enemy.
             // Thus the sphere might intersect the line segment.
             if ((0 < u) && (u < 1))
             {
                 FVector ClosestPoint = Peeks[i] + u * PlayerToEnemy;
-                //MarkFVector(GetWorld(), ClosestPoint);
+                // The point lies within the radius of the sphere,
+                // so the sphere intersects the line segment.
                 if ((SphereCenter - ClosestPoint).SizeSquared() > RadiusSquared)
                 {
                     return false;
                 }
             }
-            // Otherwise, the sphere definitely does not intersect the line segment.
+            // The sphere does not intersect the line segment.
             else
             {
                 return false;
@@ -463,7 +461,7 @@ bool ACullingController::InHalfSpaces(
 
 // Currently just returns all cuboids.
 // TODO: Implement search through Bounding Volume Hierarchy.
-TArray<int> ACullingController::GetPossibleOccludingCuboids(Bundle B)
+TArray<int> ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 {
 	TArray<int> PossibleOccluders;
 	for (int i = 0; i < Cuboids.Num(); i++)
@@ -513,5 +511,3 @@ void ACullingController::Tick(float DeltaTime)
 	TotalTicks++;
 	BenchmarkCull();
 }
-
-

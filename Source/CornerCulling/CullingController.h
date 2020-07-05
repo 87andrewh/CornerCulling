@@ -160,25 +160,22 @@ struct Sphere
     }
 };
 
-// A volume that bounds a character. Uses a sphere to quickly determine if objects are obviously occluded or hidden.
-// If the sphere is only partially occluded, then check against all tight bounding points.
+// A volume that bounds a character.
+// Uses a bounding sphere to quickly check visibility.
+// Uses the vertices of a bounding box to accurately check visibility.
 struct CharacterBounds
 {
 	// Location of character's camera.
 	FVector CameraLocation;
 	// Center of character and bounding spheres.
 	FVector Center;
-	// Bounding sphere that circumscribes the bounding box.
-	// Can quickly determine if the entire bounding box is occluded.
 	float BoundingSphereRadius = 105;
-	// Divide vertices to skip the bottom half when a payer peeks it from above and vice versa.
-	// This halves the work, but can over-cull if the bottom edge of an enemy is not aligned with the top
-	// and that bottom edge would stick out out when peeking over a chamfered wall.
-	// But most bounding boxes should not vary along the Z axis.
-	// We could also apply this idea to the left and right, but it would require a little more code.
-	// Vertices in the top half of the bounding volume.
+	// Divide vertices into top and bottom to skip the bottom half when
+    // a player peeks it from above, and vice versa for peeks from below.
+    // This shortcut assumes that top and bottom vertices share X and Y coordinates.
+	// We could also apply this idea to the left and right,
+    // but it would require more work to calculate rotations.
 	TArray<FVector> TopVertices;
-	// Vertices in bottom half of the bounding volume.
 	TArray<FVector> BottomVertices;
 	CharacterBounds(FVector CameraLocation, FTransform T)
     {
@@ -292,7 +289,7 @@ class ACullingController : public AInfo
 	void CullWithCuboids();
 	// Gets indices of cuboids that could block LOS between the player and enemy
     // in the Bundle.
-	TArray<int> GetPossibleOccludingCuboids(Bundle B);
+	TArray<int> GetPossibleOccludingCuboids(const Bundle& B);
     // Gets corners of the rectangle encompassing a player's possible peeks
     // on an enemy--in the plane normal to the line of sight.
     // When facing along the vector from player to enemy, Corners are indexed
@@ -302,8 +299,8 @@ class ACullingController : public AInfo
     //   the left of an enemy is actually perpendicular to the leftmost point
     //   of the enemy, not its center.
     TArray<FVector> GetPossiblePeeks(
-        FVector PlayerCameraLocation,
-        FVector EnemyLocation,
+        const FVector& PlayerCameraLocation,
+        const FVector& EnemyLocation,
 		float MaxDeltaHorizontal,
 		float MaxDeltaVertical
     );
@@ -338,12 +335,12 @@ class ACullingController : public AInfo
 	);
 	// Checks if a Sphere blocks all lines of sight between a player's possible
 	// peeks and points in an enemy's bounding box, stored in a bundle.
-	bool IsBlocking(const Bundle& B, Sphere& OccludingSphere);
+	bool IsBlocking(const Bundle& B, const Sphere& OccludingSphere);
 	// Checks if a Cuboid blocks all lines of sight between a player's possible
 	// peeks and points in an enemy's bounding box, stored in a bundle.
-	bool IsBlocking(const Bundle& B, Cuboid& OccludingCuboid);
+	bool IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid);
     // For each plane, define a half-space by the set of all points
-    // with a positive dot product with its normal vector.
+    // with a positive (dot product with its normal vector.
     // Checks that every point is within all half-spaces.
 	bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
 	// Sends character j's location to character i for all (i, j) pairs
