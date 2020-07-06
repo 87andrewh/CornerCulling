@@ -34,6 +34,15 @@ The last big tip is to keep enemies revealed for a few culling cycles. It is exp
 - Implement bounding volume hierarchy
 - Talk to engineers at Umbra
 
+## BVH Design
+```python
+# Classes
+BVH
+# Functions
+BVH(Cuboids)
+BVH.GetPossibleOccludingCuboids(Bundle) 
+```
+
 ## Other Tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
 - Reach out to graphics experts for review
