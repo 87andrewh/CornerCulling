@@ -108,7 +108,7 @@ void ACullingController::PopulateBundles()
                 {
 					VisibilityTimers[i][j]--;
 				}
-				if (IsAlive[j] && (Teams[i] != Teams[j]) && (VisibilityTimers[i][j] == 0))
+				else if (IsAlive[j] && (Teams[i] != Teams[j]))
                 {   
                     // TODO:
                     //   Make displacement a function of latency and game state.
@@ -263,20 +263,20 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCubo
                     PlanesToCheck.Emplace(P);
                 }
             }
-            // Check if the vertices of the enemy bounding box are in all half spaces
+            // Check if all vertices of the enemy bounding box are in half spaces
             // defined by the planes that failed to contain the bounding sphere.
-            // Because each bounding box bottom vertex is directly below a top vertex,
+            // Because each bottom vertex is directly below a top vertex,
             // we do not need to check bottom vertices when peeking from above.
             // Likewise for top vertices.
-            if (   (i < 2)
+            if (   i < 2
                 && !InHalfSpaces(EnemyBounds.TopVertices, PlanesToCheck))
             {
-            	return false;
+                return false;
             }
-            if (   (i >= 2)
-                && !InHalfSpaces(EnemyBounds.BottomVertices, PlanesToCheck))
+            else if (   i >= 2
+                     && !InHalfSpaces(EnemyBounds.BottomVertices, PlanesToCheck))
             {
-            	return false;
+                return false;
             }
             // There are no faces between the player and enemy.
             // Thus the cuboid cannot block LOS.
