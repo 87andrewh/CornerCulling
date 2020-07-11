@@ -108,7 +108,9 @@ void ACullingController::PopulateBundles()
                 {
 					VisibilityTimers[i][j]--;
 				}
-				else if (IsAlive[j] && (Teams[i] != Teams[j]))
+				if (   VisibilityTimers[i][j] == 0
+                    && IsAlive[j]
+                    && (Teams[i] != Teams[j]))
                 {   
                     // TODO:
                     //   Make displacement a function of latency and game state.
@@ -499,8 +501,8 @@ void ACullingController::SendLocation(int i, int j)
 			Bounds[i].Center + FVector(0, 0, 10),
 			Bounds[j].Center,
 			false,
-			0.02,
-			1,
+			0.015,
+			3,
 			FColor::Green);
 	}
 }

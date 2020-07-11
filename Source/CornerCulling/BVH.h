@@ -15,6 +15,9 @@ class BVH
     TArray<int> CuboidIs;
     // AABB of the BVH node.
     AABB Box;
+    // Pointers to child nodes.
+    BVH* Left = NULL;
+    BVH* Right = NULL;
 
 public:
 	BVH();
