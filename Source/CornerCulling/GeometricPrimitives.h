@@ -4,7 +4,9 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Containers/Array.h"
+#include "Math/Vector.h"
+#include <algorithm>
 
 // Number of vertices and faces of a cuboid.
 constexpr char CUBOID_V = 8;
@@ -155,11 +157,25 @@ struct Sphere
     }
 };
 
-// Axis-Aligned Bounding Box.
+// Optimized line segment that stores starting point and 1 / (End - Start)
+struct OptSegment
+{
+    FVector Start;
+    FVector Reciprocal;
+    OptSegment() {}
+    OptSegment(FVector Start, FVector End)
+    {
+        this->Start = Start;
+        Reciprocal = (End - Start).Reciprocal();
+    }
+};
+
+// Axis-Aligned Bounding Box.;
 struct AABB
 {
     FVector Min;
     FVector Max;
+    AABB() {}
     AABB(const FVector& Min, const FVector& Max)
     {
         this->Min = Min;
@@ -174,5 +190,27 @@ struct AABB
             + Diagonal.Y * Diagonal.Z
         );
     }
-};
+    // Checks if the AABB intersects the line segment
+    // between Start and End. Uses Slab method.
+    // Code adapted from:
+    // https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
+    bool Intersects(OptSegment Segment)
+    {
+        float TimeX1 = (Min.X - Segment.Start.X) * Segment.Reciprocal.X;
+        float TimeX2 = (Max.X - Segment.Start.X) * Segment.Reciprocal.X;
+        float TimeMin = std::min(TimeX1, TimeX2);
+        float TimeMax = std::min(TimeX1, TimeX2);
 
+        float TimeY1 = (Min.Y - Segment.Start.Y) * Segment.Reciprocal.Y;
+        float TimeY2 = (Max.Y - Segment.Start.Y) * Segment.Reciprocal.Y;
+        TimeMin = std::max(TimeMin, std::min(TimeY1, TimeY2));
+        TimeMax = std::min(TimeMax, std::max(TimeY1, TimeY2));
+
+        float TimeZ1 = (Min.Z - Segment.Start.Z) * Segment.Reciprocal.Z;
+        float TimeZ2 = (Max.Z - Segment.Start.Z) * Segment.Reciprocal.Z;
+        TimeMin = std::max(TimeMin, std::min(TimeZ1, TimeZ2));
+        TimeMax = std::min(TimeMax, std::max(TimeZ1, TimeZ2));
+
+        return (TimeMax >= std::max(0.0f, TimeMin)) && (TimeMin < 1);
+    }
+};

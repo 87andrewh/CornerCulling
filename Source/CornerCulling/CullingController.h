@@ -91,6 +91,8 @@ class ACullingController : public AInfo
 	TArray<Cuboid> Cuboids;
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
+    // Root of the bounding volume hierarchy of cuboids.
+    BVH RootBVH;
 	// Queues of line-of-sight bundles needing to be culled.
     // The two queues alternate as input and output of a CullWith...() function.
     // For example, CullWithCache takes input from BundleQueue,
