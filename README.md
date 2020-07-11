@@ -36,37 +36,37 @@ Another big performance trick is to keep enemies revealed for a few culling cycl
 ## Research
 
 ### Occlusion Culling:  
-http://www.cs.unc.edu/~zhangh/hom.html  
-https://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_.php?page=3  
-https://medium.com/@Umbra3D/introduction-to-occlusion-culling-3d6cfb195c79  
+- http://www.cs.unc.edu/~zhangh/hom.html  
+- https://www.gamasutra.com/view/feature/131388/rendering_the_great_outdoors_fast_.php?page=3  
+- https://medium.com/@Umbra3D/introduction-to-occlusion-culling-3d6cfb195c79  
 
 ### Improved bounding boxes (k-dops):  
-https://www.youtube.com/watch?v=h4GBU-NXJ1c  
+- https://www.youtube.com/watch?v=h4GBU-NXJ1c  
 
 ### Faster raytracing:  
-Real-Time Rendering, Fourth Edition
-http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
-https://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/14/lec14.pdf
-https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
-http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
-https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
+- Real-Time Rendering, Fourth Edition  <-- Read it. It's very good.
+- http://www0.cs.ucl.ac.uk/staff/j.kautz/teaching/3080/Slides/16_FastRaytrace.pdf
+- https://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/lec/14/lec14.pdf
+- https://hwrt.cs.utah.edu/papers/hwrt_siggraph07.pdf
+- http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
+- https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
 
 ### Fast geometric intersection algorithms
-https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
-https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
-http://paulbourke.net/geometry/circlesphere/index.html#linesphere
-
+- https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
+- https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
+- http://paulbourke.net/geometry/circlesphere/index.html#linesphere
+ 
 ### Potentially Useful Geomeotry
-https://en.wikipedia.org/wiki/Back-face_culling
-https://en.wikipedia.org/wiki/Clipping_(computer_graphics)
+- https://en.wikipedia.org/wiki/Back-face_culling
+- https://en.wikipedia.org/wiki/Clipping_(computer_graphics)
 
 ### Note on unoriginaliy
 My idea is basically shadow culling, which graphics researchers documented in 1997.  
-https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1  
-[Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
-[Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
+- https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1  
+- [Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
+- [Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
 
 ### Inspiring Graphics Libraries:  
-https://www.cgal.org/  
-https://www.geometrictools.com/  
-https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html  
+- https://www.cgal.org/  
+- https://www.geometrictools.com/  
+- https://docs.unrealengine.com/en-US/API/Runtime/Core/Math/FMath/index.html  
