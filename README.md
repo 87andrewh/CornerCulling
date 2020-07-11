@@ -6,7 +6,7 @@ Uses ray/occluding object intersection tests to check lines of sight from a play
 #### Latest Demos
 Accuracy:  
 ![](DemoAccuracy.gif)  
-Speed (edges not rendered for FPS):  
+Speed (edges not rendered to maintain frames per second):  
 ![](DemoSpeed.gif)  
 
 ## Technical Details
