@@ -51,6 +51,9 @@ Another big performance trick is to keep enemies revealed for a few culling cycl
 - http://webhome.cs.uvic.ca/~blob/courses/305/notes/pdf/Ray%20Tracing%20with%20Spatial%20Hierarchies.pdf
 - https://stackoverflow.com/questions/99796/when-to-use-binary-space-partitioning-quadtree-octree
 
+### BVH Construction
+- http://fileadmin.cs.lth.se/cs/Education/EDAN30/lectures/S2-bvh.pdf
+
 ### Fast geometric intersection algorithms
 - https://en.wikipedia.org/wiki/Intersection_of_a_polyhedron_with_a_line
 - https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
