@@ -1,12 +1,10 @@
-/**
-    @author Andrew Huang (87andrewh)
-*/
-
 #pragma once
 
 #include "Containers/Array.h"
 #include "Math/Vector.h"
 #include <algorithm>
+#include <vector>
+#include "FastBVH.h"
 
 // Number of vertices and faces of a cuboid.
 constexpr char CUBOID_V = 8;
@@ -95,7 +93,7 @@ struct Face
 struct Cuboid
 {
 	Face Faces[CUBOID_F];
-	FVector Vertices [CUBOID_V];
+	FVector Vertices[CUBOID_V];
 	Cuboid () {}
 	// Construct a cuboid from a list of vertices.
 	// vertices should be ordered
@@ -140,6 +138,73 @@ struct Cuboid
 	}
 };
 
+// BVH interface methods.
+namespace
+{
+    using std::vector;
+    using namespace FastBVH;
+
+    // Used to calculate the axis-aligned bounding boxes of cuboids.
+    template <typename Float>
+    class CuboidBoxConverter final
+    {
+        public:
+            BBox<Float> operator()(const Cuboid& C) const noexcept
+            {
+                float MinX = std::numeric_limits<float>::infinity;
+                float MinY = std::numeric_limits<float>::infinity;
+                float MinZ = std::numeric_limits<float>::infinity;
+                float MaxX = - std::numeric_limits<float>::infinity;
+                float MaxY = - std::numeric_limits<float>::infinity;
+                float MaxZ = - std::numeric_limits<float>::infinity;
+                for (int i = 0; i < CUBOID_V; i++)
+                {
+                    MinX = std::min(MinX, C.Vertices[i].X);
+                    MinY = std::min(MinY, C.Vertices[i].Y);
+                    MinZ = std::min(MinZ, C.Vertices[i].Z);
+                    MaxX = std::max(MaxX, C.Vertices[i].X);
+                    MaxY = std::max(MaxY, C.Vertices[i].Y);
+                    MaxZ = std::max(MaxZ, C.Vertices[i].Z);
+                }
+                auto MinVector = Vector3<Float>{MinX, MinY, MinZ};
+                auto MaxVector = Vector3<Float>{MaxX, MaxY, MaxZ};
+                return BBox<Float>(MinVector, MaxVector);
+            }
+    };
+    
+    // Used to calculate the intersection between rays and cuboids.
+    template <typename Float>
+    class CuboidIntersector final {
+        public:
+            Intersection<Float, Cuboid> operator()(
+                const Cuboid& C, const Ray<Float>& ray) const noexcept
+            {
+                const auto& center = sphere.center;
+                const auto& r2 = sphere.r2;
+            
+                auto s = center - ray.o;
+                auto sd = dot(s, ray.d);
+                auto ss = dot(s, s);
+            
+                // Compute discriminant
+                auto disc = sd * sd - ss + r2;
+            
+                // Complex values: No intersection
+                if (disc < 0.f) {
+                  return Intersection<Float, Cuboid>{};
+                }
+            
+                // There is a positive and negative branch to the intersection equation. Assuming we are always outside of the
+                // sphere, then the first intersection is the negative branch.
+                auto t = sd - std::sqrt(disc);
+                auto hit_pos = ray.o + (ray.d * t);
+                auto normal = normalize(hit_pos - sphere.center);
+            
+                return Intersection<Float, Cuboid>{t, &C, normal};
+            }
+    };
+}
+
 struct Sphere
 {
     FVector Center;
@@ -170,7 +235,9 @@ struct OptSegment
     }
 };
 
-// Axis-Aligned Bounding Box.;
+// Axis-Aligned Bounding Box.
+// TODO:
+//   Remove if BVH library BBOX is sufficient.
 struct AABB
 {
     FVector Min;

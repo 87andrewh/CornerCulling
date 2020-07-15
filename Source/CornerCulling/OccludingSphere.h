@@ -1,7 +1,3 @@
-/**
-    @author Andrew Huang (87andrewh)
-*/
-
 #pragma once
 
 #include "CoreMinimal.h"

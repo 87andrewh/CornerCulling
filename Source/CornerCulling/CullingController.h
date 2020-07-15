@@ -8,7 +8,7 @@
 #include "GameFramework/Info.h"
 #include "DrawDebugHelpers.h"
 #include "GeometricPrimitives.h"
-#include "BVH.h"
+#include "FastBVH.h"
 #include "CullingController.generated.h"
 
 // Number of peeks in each Bundle.
@@ -91,8 +91,6 @@ class ACullingController : public AInfo
 	TArray<Cuboid> Cuboids;
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
-    // Root of the bounding volume hierarchy of cuboids.
-    BVH RootBVH;
 	// Queues of line-of-sight bundles needing to be culled.
     // The two queues alternate as input and output of a CullWith...() function.
     // For example, CullWithCache takes input from BundleQueue,
@@ -194,12 +192,14 @@ class ACullingController : public AInfo
 		const TArray<Face>& FacesBetween,
 		TArray<FPlane>& ShadowFrustum
 	);
-	// Checks if a Sphere blocks all lines of sight between a player's possible
-	// peeks and points in an enemy's bounding box, stored in a bundle.
+	// Checks if a Sphere blocks all lines of sight between a player's
+    // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Sphere& OccludingSphere);
-	// Checks if a Cuboid blocks all lines of sight between a player's possible
-	// peeks and points in an enemy's bounding box, stored in a bundle.
+	// Checks if a Cuboid blocks all lines of sight between a player's
+    // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid);
+    // Checks if a Cuboid intersects a line segment.
+    bool Intersects(const FVector& Start, const FVector& End, const Cuboid& OccludingCuboid);
     // For each plane, define a half-space by the set of all points
     // with a positive (dot product with its normal vector.
     // Checks that every point is within all half-spaces.

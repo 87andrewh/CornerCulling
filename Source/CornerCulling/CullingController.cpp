@@ -1,8 +1,7 @@
-
 #include "CullingController.h"
 #include "OccludingCuboid.h"
 #include "OccludingSphere.h"
-#include "EngineUtils.h" // TActorRange
+#include "EngineUtils.h"
 #include <chrono> 
 
 ACullingController::ACullingController()
@@ -223,12 +222,9 @@ void ACullingController::CullWithCuboids()
 	}
 }
 
-// Checks if the Cuboid blocks visibility between a bundle's player and enemy.
-// For each of the most aggressive peeks a player camera could perform on
-// the enemy within the latency period:
-//   Try to use the enemy's bounding spheres to quickly check visibility.
-//   If visibility is still ambiguous, check all points of the bounding box.
-// Return whether all potential peeks are blocked.
+// Checks if the Cuboid blocks visibility between a bundle's player and enemy,
+// returning true if and only if all lines of sights from all peeking positions
+// are blocked.
 bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid)
 {
     // Unpack constant variables outside of loop for performance.
@@ -240,6 +236,11 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCubo
     TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
     for (int i = 0; i < NUM_PEEKS; i++)
     {
+        // If cuboid does not block the bundle if it fails to block any peek.
+        if (!Intersects(Peeks[i], EnemyCenter, OccludingCuboid))
+        {
+            return false;
+        }
         // Get the faces of the cuboid that are visible to the player at
         // Peeks[i] and in between the player at Peeks[i] and the enemy.
         TArray<Face> FacesBetween = GetFacesBetween(
@@ -290,6 +291,52 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCubo
         }
     }
 	return true;
+}
+
+// Checks if a line segment intersects a cuboid.
+// Implements Cyrus-Beck line clipping algorithm.
+bool ACullingController::Intersects(
+    const FVector& Start, const FVector& End, const Cuboid& C)
+{
+    float TimeEnter = 0;
+    float TimeExit = 1;
+    FVector StartToEnd = End - Start;
+    for (int i = 0; i < CUBOID_F; i++)
+    {
+        // Numerator of a plane/line intersection test.
+        const FVector& Normal = C.Faces[i].Normal;
+        float Num = (Normal | (C.GetVertex(i, 0) - Start));
+        float Denom = StartToEnd | Normal;
+        if (Denom == 0)
+        {
+            // Start is outside of the plane,
+            // so it cannot intersect the Cuboid.
+            if (Num < 0)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            float t = Num / Denom;
+            // The segment is entering the face.
+            if (Denom < 0)
+            {
+                TimeEnter = std::max(TimeEnter, t);
+            }
+            else
+            {
+                TimeExit = std::min(TimeExit, t);
+            }
+            // The segment exits before entering,
+            // so it cannot intersect the cuboid.
+            if (TimeEnter > TimeExit)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 // Gets all faces between player and enemy that have a normal pointing
