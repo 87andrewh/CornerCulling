@@ -138,7 +138,56 @@ struct Cuboid
 	}
 };
 
-// BVH interface methods.
+// Checks if a Cuboid intersects a line segment between Start and
+// Start + Direction * Time.
+// Implements Cyrus-Beck line clipping algorithm.
+inline bool Intersects(
+    const Cuboid& C,
+    const FVector& Start,
+    const FVector& Direction,
+    const float Time = 1)
+{
+    float TimeEnter = 0;
+    float TimeExit = Time;
+    for (int i = 0; i < CUBOID_F; i++)
+    {
+        // Numerator of a plane/line intersection test.
+        const FVector& Normal = C.Faces[i].Normal;
+        float Num = (Normal | (C.GetVertex(i, 0) - Start));
+        float Denom = Direction | Normal;
+        if (Denom == 0)
+        {
+            // Start is outside of the plane,
+            // so it cannot intersect the Cuboid.
+            if (Num < 0)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            float t = Num / Denom;
+            // The segment is entering the face.
+            if (Denom < 0)
+            {
+                TimeEnter = std::max(TimeEnter, t);
+            }
+            else
+            {
+                TimeExit = std::min(TimeExit, t);
+            }
+            // The segment exits before entering,
+            // so it cannot intersect the cuboid.
+            if (TimeEnter > TimeExit)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// BVH API.
 namespace
 {
     using std::vector;
@@ -151,12 +200,12 @@ namespace
         public:
             BBox<Float> operator()(const Cuboid& C) const noexcept
             {
-                float MinX = std::numeric_limits<float>::infinity;
-                float MinY = std::numeric_limits<float>::infinity;
-                float MinZ = std::numeric_limits<float>::infinity;
-                float MaxX = - std::numeric_limits<float>::infinity;
-                float MaxY = - std::numeric_limits<float>::infinity;
-                float MaxZ = - std::numeric_limits<float>::infinity;
+                float MinX = std::numeric_limits<float>::infinity();
+                float MinY = std::numeric_limits<float>::infinity();
+                float MinZ = std::numeric_limits<float>::infinity();
+                float MaxX = - std::numeric_limits<float>::infinity();
+                float MaxY = - std::numeric_limits<float>::infinity();
+                float MaxZ = - std::numeric_limits<float>::infinity();
                 for (int i = 0; i < CUBOID_V; i++)
                 {
                     MinX = std::min(MinX, C.Vertices[i].X);
@@ -173,34 +222,19 @@ namespace
     };
     
     // Used to calculate the intersection between rays and cuboids.
-    template <typename Float>
     class CuboidIntersector final {
         public:
-            Intersection<Float, Cuboid> operator()(
-                const Cuboid& C, const Ray<Float>& ray) const noexcept
+            Intersection<float, Cuboid> operator()(
+                const Cuboid& C, const Ray<float>& ray) const noexcept
             {
-                const auto& center = sphere.center;
-                const auto& r2 = sphere.r2;
-            
-                auto s = center - ray.o;
-                auto sd = dot(s, ray.d);
-                auto ss = dot(s, s);
-            
-                // Compute discriminant
-                auto disc = sd * sd - ss + r2;
-            
-                // Complex values: No intersection
-                if (disc < 0.f) {
-                  return Intersection<Float, Cuboid>{};
+                FVector Start = FVector(ray.o.x, ray.o.y, ray.o.z);
+                FVector Direction = FVector(ray.d.x, ray.d.y, ray.d.z);
+                if (Intersects(C, Start, Direction, std::numeric_limits<float>::infinity()))
+                {
+                  return Intersection<float, Cuboid>{};
                 }
             
-                // There is a positive and negative branch to the intersection equation. Assuming we are always outside of the
-                // sphere, then the first intersection is the negative branch.
-                auto t = sd - std::sqrt(disc);
-                auto hit_pos = ray.o + (ray.d * t);
-                auto normal = normalize(hit_pos - sphere.center);
-            
-                return Intersection<Float, Cuboid>{t, &C, normal};
+                return Intersection<float, Cuboid>{1, &C, ray.d};
             }
     };
 }
@@ -281,3 +315,4 @@ struct AABB
         return (TimeMax >= std::max(0.0f, TimeMin)) && (TimeMin < 1);
     }
 };
+

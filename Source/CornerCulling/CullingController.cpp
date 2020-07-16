@@ -120,7 +120,7 @@ void ACullingController::PopulateBundles()
                             GetPossiblePeeks(
                                 Bounds[i].CameraLocation,
                                 Bounds[j].Center,
-                                20,  // Maximum horizontal displacement
+                                15,  // Maximum horizontal displacement
                                 10   // Maximum vertical displacement
                             )
                         )
@@ -225,118 +225,26 @@ void ACullingController::CullWithCuboids()
 // Checks if the Cuboid blocks visibility between a bundle's player and enemy,
 // returning true if and only if all lines of sights from all peeking positions
 // are blocked.
-bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid)
+bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& C)
 {
-    // Unpack constant variables outside of loop for performance.
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-    const FVector& EnemyCenter = EnemyBounds.Center;
     const TArray<FVector>& Peeks = B.PossiblePeeks;
-    const float EnemyRadius = EnemyBounds.BoundingSphereRadius;
-    // Shadow frustum for each possible peek.
-    TArray<FPlane> ShadowFrustums[NUM_PEEKS] = { TArray<FPlane>() };
-    for (int i = 0; i < NUM_PEEKS; i++)
+    // If cuboid does not block the bundle if it fails to block any peek.
+    for (const FVector& V : EnemyBounds.TopVertices)
     {
-        // If cuboid does not block the bundle if it fails to block any peek.
-        if (!Intersects(Peeks[i], EnemyCenter, OccludingCuboid))
-        {
+        if (!Intersects(C, Peeks[0], V - Peeks[0]))
             return false;
-        }
-        // Get the faces of the cuboid that are visible to the player at
-        // Peeks[i] and in between the player at Peeks[i] and the enemy.
-        TArray<Face> FacesBetween = GetFacesBetween(
-            Peeks[i], EnemyCenter, OccludingCuboid
-        );
-        if (FacesBetween.Num() > 0)
-        {
-            GetShadowFrustum(Peeks[i], OccludingCuboid, FacesBetween, ShadowFrustums[i]);
-            // Planes of the shadow frustum that define a half space that
-            // does not contain the enemy bounding sphere, and thus must
-            // be checked against the enemy bounding box.
-            TArray<FPlane> PlanesToCheck;
-            // Try to determine visibility with quick bounding sphere checks.
-            for (FPlane& P : ShadowFrustums[i])
-            {
-                // Signed distance from enemy to plane.
-                // The direction of the plane's normal vector is negative.
-                float EnemyDistanceToPlane = -P.PlaneDot(EnemyCenter);
-                // The bounding sphere is not completely contained by the plane,
-                // so we must check it against the bounding box.
-                if (EnemyDistanceToPlane < EnemyRadius)
-                {
-                    PlanesToCheck.Emplace(P);
-                }
-            }
-            // Check if all vertices of the enemy bounding box are in half spaces
-            // defined by the planes that failed to contain the bounding sphere.
-            // Because each bottom vertex is directly below a top vertex,
-            // we do not need to check bottom vertices when peeking from above.
-            // Likewise for top vertices.
-            if (   i < 2
-                && !InHalfSpaces(EnemyBounds.TopVertices, PlanesToCheck))
-            {
-                return false;
-            }
-            else if (   i >= 2
-                     && !InHalfSpaces(EnemyBounds.BottomVertices, PlanesToCheck))
-            {
-                return false;
-            }
-            // There are no faces between the player and enemy.
-            // Thus the cuboid cannot block LOS.
-        }
-        // No faces between the player and enemy. The cuboid cannot block LOS.
-        else
-        {
+        if (!Intersects(C, Peeks[1], V - Peeks[1]))
             return false;
-        }
+    }
+    for (const FVector& V : EnemyBounds.BottomVertices)
+    {
+        if (!Intersects(C, Peeks[2], V - Peeks[2]))
+            return false;
+        if (!Intersects(C, Peeks[3], V - Peeks[3]))
+            return false;
     }
 	return true;
-}
-
-// Checks if a line segment intersects a cuboid.
-// Implements Cyrus-Beck line clipping algorithm.
-bool ACullingController::Intersects(
-    const FVector& Start, const FVector& End, const Cuboid& C)
-{
-    float TimeEnter = 0;
-    float TimeExit = 1;
-    FVector StartToEnd = End - Start;
-    for (int i = 0; i < CUBOID_F; i++)
-    {
-        // Numerator of a plane/line intersection test.
-        const FVector& Normal = C.Faces[i].Normal;
-        float Num = (Normal | (C.GetVertex(i, 0) - Start));
-        float Denom = StartToEnd | Normal;
-        if (Denom == 0)
-        {
-            // Start is outside of the plane,
-            // so it cannot intersect the Cuboid.
-            if (Num < 0)
-            {
-                return false;
-            }
-        }
-        else
-        {
-            float t = Num / Denom;
-            // The segment is entering the face.
-            if (Denom < 0)
-            {
-                TimeEnter = std::max(TimeEnter, t);
-            }
-            else
-            {
-                TimeExit = std::min(TimeExit, t);
-            }
-            // The segment exits before entering,
-            // so it cannot intersect the cuboid.
-            if (TimeEnter > TimeExit)
-            {
-                return false;
-            }
-        }
-    }
-    return true;
 }
 
 // Gets all faces between player and enemy that have a normal pointing
@@ -379,8 +287,19 @@ void ACullingController::GetShadowFrustum(
 	const TArray<Face>& FacesBetween,
 	TArray<FPlane>& ShadowFrustum)
 {
-	// Reset the edge set.
-	memset(EdgeSet, false, 64);
+	// Used to find duplicate edges when merging faces.
+	// Not perfectly space efficient, but fast and simple.
+	bool EdgeSet[CUBOID_V][CUBOID_V] =
+	{
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+		{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	};
 	// Add all perimeter edges of all faces to the EdgeSet.
 	for (const Face& F : FacesBetween)
     {

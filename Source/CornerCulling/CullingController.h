@@ -19,7 +19,7 @@ constexpr char MAX_CHARACTERS = 12;
 constexpr char CUBOID_CACHE_SIZE = 3;
 
 // A volume that bounds a character.
-// Uses a bounding sphere to quickly check visibility.
+// Has a bounding sphere to quickly check visibility.
 // Uses the vertices of a bounding box to accurately check visibility.
 struct CharacterBounds
 {
@@ -98,27 +98,14 @@ class ACullingController : public AInfo
     // Then CullWithSpheres takes input from BundleQueue2, etc.
 	TArray<Bundle> BundleQueue;
 	TArray<Bundle> BundleQueue2;
-	// Used to find duplicate edges when merging faces.
-	// Not perfectly space efficient, but fast and simple.
-	bool EdgeSet[CUBOID_V][CUBOID_V] =
-	{
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-	};
 
 	// Stores how much longer the second character is visible to the first.
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int MinTimerIncrement = 10;
+	int MinTimerIncrement = 8;
 	// Bigger increment for when the server is under heavy load.
-	int MaxTimerIncrement = 18;
+	int MaxTimerIncrement = 16;
 	int TimerIncrement = MinTimerIncrement;
 	// If the rolling max time to cull exceeds the threshold, set TimerIncrement
 	// to MaxTimerIncrement. Else set it to MinTimerIncrement.
@@ -157,7 +144,7 @@ class ACullingController : public AInfo
     //   Inaccurate on very wide enemies, as the most aggressive angle to peek
     //   the left of an enemy is actually perpendicular to the leftmost point
     //   of the enemy, not its center.
-    TArray<FVector> GetPossiblePeeks(
+    static TArray<FVector> GetPossiblePeeks(
         const FVector& PlayerCameraLocation,
         const FVector& EnemyLocation,
 		float MaxDeltaHorizontal,
@@ -165,7 +152,7 @@ class ACullingController : public AInfo
     );
 	// Gets all faces that sit between a player and an enemy and have a normal
 	// pointing out toward the player, thus skipping redundant back faces.
-	TArray<Face> GetFacesBetween(
+	static TArray<Face> GetFacesBetween(
 		const FVector& PlayerCameraLocation,
 		const FVector& EnemyCenter,
 		const Cuboid& OccludingCuboid
@@ -186,7 +173,7 @@ class ACullingController : public AInfo
 	//           \--           
 	//              \--      
 	// 2D example. P for player camera, E for enemy.
-	void GetShadowFrustum(
+	static void GetShadowFrustum(
 		const FVector& PlayerCameraLocation,
 		const Cuboid& OccludingCuboid,
 		const TArray<Face>& FacesBetween,
@@ -198,12 +185,10 @@ class ACullingController : public AInfo
 	// Checks if a Cuboid blocks all lines of sight between a player's
     // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid);
-    // Checks if a Cuboid intersects a line segment.
-    bool Intersects(const FVector& Start, const FVector& End, const Cuboid& OccludingCuboid);
     // For each plane, define a half-space by the set of all points
     // with a positive (dot product with its normal vector.
     // Checks that every point is within all half-spaces.
-	bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
+	static bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
 	// Sends character j's location to character i for all (i, j) pairs
     // if character j is visible to character i.
 	void SendLocations();
