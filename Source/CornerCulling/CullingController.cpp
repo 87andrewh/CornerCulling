@@ -2,7 +2,6 @@
 #include "OccludingCuboid.h"
 #include "OccludingSphere.h"
 #include "EngineUtils.h"
-#include <vector>
 #include <chrono> 
 
 ACullingController::ACullingController()
@@ -40,7 +39,7 @@ void ACullingController::BeginPlay()
         <FastBVH::BVH<float, Cuboid>>
         (BuildStrategy(tmp, Converter));
     CuboidTraverser = std::make_unique
-        <Traverser<float, Cuboid, decltype(Intersector), TraverserFlags(1)>>
+        <Traverser<float, Cuboid, decltype(Intersector)>>
         (*CuboidBVH.get(), Intersector);
     for (AOccludingSphere* Occluder : TActorRange<AOccludingSphere>(GetWorld()))
     {
@@ -73,14 +72,6 @@ void ACullingController::BenchmarkCull()
 			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
 			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
-		}
-		if (RollingMaxTime > TimerLoadThreshold)
-        {
-			TimerIncrement = MaxTimerIncrement;
-		}
-		else
-        {
-			TimerIncrement = MinTimerIncrement;
 		}
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
@@ -120,6 +111,7 @@ void ACullingController::PopulateBundles()
         {
 			for (int j = 0; j < Characters.Num(); j++)
             {
+                // Decrement visibility timers.
 				if (VisibilityTimers[i][j] > 0)
                 {
 					VisibilityTimers[i][j]--;
@@ -176,12 +168,15 @@ void ACullingController::CullWithCache()
 		bool Blocked = false;
 		for (int k = 0; k < CUBOID_CACHE_SIZE; k++)
         {
-			if (IsBlocking(B, Cuboids[CuboidCaches[B.PlayerI][B.EnemyI][k]]))
+            if (CuboidCaches[B.PlayerI][B.EnemyI][k] != NULL)
             {
-				Blocked = true;
-				CacheTimers[B.PlayerI][B.EnemyI][k] = TotalTicks;
-				break;
-			}
+			    if (IsBlocking(B, *(CuboidCaches[B.PlayerI][B.EnemyI][k])))
+                {
+			    	Blocked = true;
+			    	CacheTimers[B.PlayerI][B.EnemyI][k] = TotalTicks;
+			    	break;
+			    }
+            }
 		}
 		if (!Blocked)
         {
@@ -220,14 +215,15 @@ void ACullingController::CullWithCuboids()
     {
 		bool Blocked = false;
         //auto intersection = Traverser.traverse();
-		for (int CuboidI : GetPossibleOccludingCuboids(B))
-{
-			if (IsBlocking(B, Cuboids[CuboidI]))
+        std::vector<const Cuboid*> Occluders = GetPossibleOccludingCuboids(B);
+		for (const Cuboid* CuboidP : Occluders)
+        {
+			if (IsBlocking(B, *CuboidP))
             {
 				Blocked = true;
 				int MinI =
                     ArgMin(CacheTimers[B.PlayerI][B.EnemyI], CUBOID_CACHE_SIZE);
-				CuboidCaches[B.PlayerI][B.EnemyI][MinI] = CuboidI;
+				CuboidCaches[B.PlayerI][B.EnemyI][MinI] = CuboidP;
 				CacheTimers[B.PlayerI][B.EnemyI][MinI] = TotalTicks;
 				break;
 			}
@@ -263,113 +259,6 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& C)
             return false;
     }
 	return true;
-}
-
-// Gets all faces between player and enemy that have a normal pointing
-// toward the player, thus ignoring non-visible back faces.
-TArray<Face> ACullingController::GetFacesBetween(
-	const FVector& PlayerCameraLocation,
-	const FVector& EnemyCenter,
-	const Cuboid& OccludingCuboid)
-{
-    TArray<Face> FacesBetween;
-	for (int i = 0; i < CUBOID_F; i++)
-    {
-		Face F = OccludingCuboid.Faces[i];
-		FVector FaceV = OccludingCuboid.GetVertex(i, 0);
-		FVector PlayerToFace = FaceV - PlayerCameraLocation;
-		FVector EnemyToFace = FaceV - EnemyCenter;
-		if (   ((PlayerToFace | F.Normal) < 0)
-			&& ((EnemyToFace | F.Normal) > 0))
-        {
-			FacesBetween.Emplace(F);
-		}
-	}
-    return FacesBetween;
-}
-
-// Gets the shadow frustum's planes, which are defined by three points:
-// the player's camera location and the endpoints of an occluding, exterior edge
-// of the occluding surface formed by all faces in FacesBetween.
-// Edge (i, j) is an occluding, exterior edge if two conditions hold:
-//   1) It is an edge of the perimeter of a face in FacesBetween
-//   2) Edge (j, i) is not.
-// This trick relies on fact that faces of a polyhedron have outward normals,
-// and perimeter edges of faces wrap counter-clockwise by the right-hand rule.
-// Thus, when two faces share an edge, that edge is included in the set of
-// their edges as (i, j) from the left face and (j, i) from the right.
-// Thus, interior edges of the occluding surface are identified and omitted.
-void ACullingController::GetShadowFrustum(
-	const FVector& PlayerCameraLocation,
-	const Cuboid& OccludingCuboid,
-	const TArray<Face>& FacesBetween,
-	TArray<FPlane>& ShadowFrustum)
-{
-	// Used to find duplicate edges when merging faces.
-	// Not perfectly space efficient, but fast and simple.
-	bool EdgeSet[CUBOID_V][CUBOID_V] =
-	{
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ 0, 0, 0, 0, 0, 0, 0, 0 },
-	};
-	// Add all perimeter edges of all faces to the EdgeSet.
-	for (const Face& F : FacesBetween)
-    {
-		EdgeSet[F.Perimeter[0]][F.Perimeter[1]] = true;
-		EdgeSet[F.Perimeter[1]][F.Perimeter[2]] = true;
-		EdgeSet[F.Perimeter[2]][F.Perimeter[3]] = true;
-		EdgeSet[F.Perimeter[3]][F.Perimeter[0]] = true;
-	}
-	// For all unpaired, occluding edges, create a corresponding
-	// shadow frustum plane, and add it to the ShadowFrustum.
-	for (const Face& F : FacesBetween)
-    {
-		// Indices of vertices that define the perimeter of the face.
-		int V0 = F.Perimeter[0];
-		int V1 = F.Perimeter[1];
-		int V2 = F.Perimeter[2];
-		int V3 = F.Perimeter[3];
-		// If edge (j, i) is not present, create a plane with (i, j).
-		if (!EdgeSet[V1][V0])
-        {
-			ShadowFrustum.Emplace(FPlane(
-				PlayerCameraLocation,
-				OccludingCuboid.Vertices[V0],
-				OccludingCuboid.Vertices[V1]
-			));
-		}
-		if (!EdgeSet[V2][V1])
-        {
-			ShadowFrustum.Emplace(FPlane(
-				PlayerCameraLocation,
-				OccludingCuboid.Vertices[V1],
-				OccludingCuboid.Vertices[V2]
-			));
-		}
-		if (!EdgeSet[V3][V2])
-        {
-			FVector u = OccludingCuboid.Vertices[V2] + FVector(0, 0, 10);
-			ShadowFrustum.Emplace(FPlane(
-				PlayerCameraLocation,
-				OccludingCuboid.Vertices[V2],
-				OccludingCuboid.Vertices[V3]
-			));
-		}
-		if (!EdgeSet[V0][V3])
-        {
-			ShadowFrustum.Emplace(FPlane(
-				PlayerCameraLocation,
-				OccludingCuboid.Vertices[V3],
-				OccludingCuboid.Vertices[V0]
-			));
-		}
-	}
 }
 
 // Checks sphere intersection for all line segments between
@@ -422,38 +311,25 @@ bool ACullingController::IsBlocking(const Bundle& B, const Sphere& OccludingSphe
     return true;
 }
 
-
-// For each plane, defines a half-space by the set of all points
-// with a positive dot product with its normal vector.
-// Check that every point is within all half-spaces.
-bool ACullingController::InHalfSpaces(
-	const TArray<FVector>& Points,
-	const TArray<FPlane>& Planes)
+// Gets all cuboids that could occlude th bundle.
+// Search through the cuboid bounding volume hierarchy.
+std::vector<const Cuboid*>
+ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 {
-	for (const FVector& Point : Points)
+    // START PATCH
+    std::vector<const Cuboid*> foo;
+    for (const Cuboid& C : Cuboids)
     {
-		for (const FPlane& Plane : Planes)
-        {
-			// The point is on the outer side of the plane.
-			if (Plane.PlaneDot(Point) > 0)
-            {
-				return false;
-			}
-		}
-	}
-	return true;
-}
+        foo.emplace_back(&C);
+    }
+    return foo;
+    // END PATCH
 
-// Currently just returns all cuboids.
-// TODO: Implement search through Bounding Volume Hierarchy.
-TArray<int> ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
-{
-	TArray<int> PossibleOccluders;
-	for (int i = 0; i < Cuboids.Num(); i++)
-    {
-		PossibleOccluders.Emplace(i);
-	}
-	return PossibleOccluders;
+    // Functional sometimes. Nondeterministically fails to return all occluders.
+    return CuboidTraverser.get()->traverse(
+        OptSegment(
+            Bounds[B.PlayerI].CameraLocation,
+            Bounds[B.EnemyI].Center));
 }
 
 // Increments visibility timers of bundles that were not culled,
@@ -462,11 +338,7 @@ void ACullingController::UpdateVisibility()
 {
 	for (Bundle B : BundleQueue)
     {
-		// Random offset spreads out culling when all characters become
-		// visible to each other at the same time, such as when walls fall.
-		VisibilityTimers[B.PlayerI][B.EnemyI] = (
-			TimerIncrement + (FMath::Rand() % 3)
-		);
+        VisibilityTimers[B.PlayerI][B.EnemyI] = TimerIncrement;
 	}
 	for (int i = 0; i < Characters.Num(); i++)
     {

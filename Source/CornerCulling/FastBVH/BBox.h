@@ -88,7 +88,11 @@ struct BBox final {
 };
 
 template <typename Float>
-bool BBox<Float>::intersect(const OptSegment& Segment, Float* tnear, Float* tfar) const noexcept {
+bool BBox<Float>::intersect(
+    const OptSegment& Segment,
+    Float* tnear,
+    Float* tfar) const noexcept 
+{
   Float tmin = (min.x - Segment.Start.X) * Segment.Reciprocal.X;
   Float tmax = (max.x - Segment.Start.X) * Segment.Reciprocal.X;
 

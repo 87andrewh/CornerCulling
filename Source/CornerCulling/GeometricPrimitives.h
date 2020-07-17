@@ -28,7 +28,7 @@ struct Face
 	//	|  ,+-----+---+  
 	//	|.'    5  | .'   
 	//	+---------+'    
-	//	To reiterate, 1 is in front, and we continue counterclockwise.
+	//	1 is in front.
 	Face(int i, FVector Vertices[])
     {
 		switch (i)
@@ -41,7 +41,6 @@ struct Face
 				break;
 			case 1:
 				Perimeter[0] = 2;
-
 				Perimeter[1] = 6;
 				Perimeter[2] = 7;
 				Perimeter[3] = 3;
@@ -74,7 +73,7 @@ struct Face
 		Normal = FVector::CrossProduct(
 			Vertices[Perimeter[1]] - Vertices[Perimeter[0]],
 			Vertices[Perimeter[2]] - Vertices[Perimeter[0]]
-		).GetSafeNormal(1e-6);
+		).GetSafeNormal(1e-9);
 	}
 	Face(const Face& F)
     {

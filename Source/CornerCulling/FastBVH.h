@@ -54,10 +54,7 @@ namespace
                 float Time = IntersectionTime(C, Segment.Start, Segment.Delta);
                 if (Time > 0)
                 {
-                    return Intersection<float, Cuboid>
-                    {
-                        Time, &C, Vector3<float>{ 1, 1, 1 }
-                    };
+                    return Intersection<float, Cuboid> { Time, &C };
                 }
                 else
                 {

@@ -17,14 +17,8 @@ struct Intersection final {
   //! The scale at which the ray reaches the primitive.
   Float t = std::numeric_limits<Float>::infinity();
 
-  //! A pointer to the primitive that the ray intersected with.
-  const Primitive* object = nullptr;
-
-  //! The normal at the point of intersection.
-  Vec3 normal = {0, 0, 1};
-
-  //! The UV coordinates at the position of intersection.
-  Float uv[2] = {0, 0};
+  // Pointer to the intersected object.
+  const Primitive* IntersectedP = NULL;
 
   //! Gets the position at the ray hit the object.
   //! \param ray_pos The ray position.

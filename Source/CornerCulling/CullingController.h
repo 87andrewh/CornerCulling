@@ -9,6 +9,7 @@
 #include "DrawDebugHelpers.h"
 #include "GeometricPrimitives.h"
 #include "FastBVH.h"
+#include <vector>
 #include "CullingController.generated.h"
 
 // Number of peeks in each Bundle.
@@ -83,8 +84,9 @@ class ACullingController : public AInfo
 	TArray<char> Teams;
 	// Bounding volumes of all characters.
 	TArray<CharacterBounds> Bounds;
-	// Cache of cuboids that recently blocked LOS from one character to another.
-	int CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
+	// Cache of pointers to cuboids that recently blocked LOS from
+    // player i to enemy j. Accessed by CuboidCaches[i][j].
+	const Cuboid* CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// Timers that track the last time a cache element culled.
 	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// All occluding cuboids in the map.
@@ -92,9 +94,9 @@ class ACullingController : public AInfo
     // Bounding volume hierarchy containing cuboids.
     std::unique_ptr<FastBVH::BVH<float, Cuboid>> CuboidBVH{};
     CuboidIntersector Intersector;
-    // Would be nice to use std::optional with C++17.
+    // Note: Could be nice to use std::optional with C++17.
     std::unique_ptr
-        <Traverser<float, Cuboid, decltype(Intersector), TraverserFlags(1)>>
+        <Traverser<float, Cuboid, decltype(Intersector)>>
         CuboidTraverser {};
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
@@ -105,16 +107,10 @@ class ACullingController : public AInfo
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int MinTimerIncrement = 8;
-	// Bigger increment for when the server is under heavy load.
-	int MaxTimerIncrement = 16;
-	int TimerIncrement = MinTimerIncrement;
-	// If the rolling max time to cull exceeds the threshold, set TimerIncrement
-	// to MaxTimerIncrement. Else set it to MinTimerIncrement.
-	int TimerLoadThreshold = 1000;
+	int TimerIncrement = 3;
 
 	// How many frames pass between each cull.
-	int CullingPeriod = 4;
+	int CullingPeriod = 9;
 	// Used to calculate short rolling average of frame times.
 	float RollingTotalTime = 0;
 	float RollingAverageTime = 0;
@@ -135,9 +131,9 @@ class ACullingController : public AInfo
 	void CullWithSpheres();
 	// Culls queued bundles with occluding cuboids.
 	void CullWithCuboids();
-	// Gets indices of cuboids that could block LOS between the player and enemy
+	// Gets pointers of cuboids that could block LOS between the player and enemy
     // in the Bundle.
-	TArray<int> GetPossibleOccludingCuboids(const Bundle& B);
+	std::vector<const Cuboid*> GetPossibleOccludingCuboids(const Bundle& B);
     // Gets corners of the rectangle encompassing a player's possible peeks
     // on an enemy--in the plane normal to the line of sight.
     // When facing along the vector from player to enemy, Corners are indexed
@@ -152,45 +148,12 @@ class ACullingController : public AInfo
 		float MaxDeltaHorizontal,
 		float MaxDeltaVertical
     );
-	// Gets all faces that sit between a player and an enemy and have a normal
-	// pointing out toward the player, thus skipping redundant back faces.
-	static TArray<Face> GetFacesBetween(
-		const FVector& PlayerCameraLocation,
-		const FVector& EnemyCenter,
-		const Cuboid& OccludingCuboid
-	);
-	// Get the shadow frustum. Given a point light shining on a polyhedron,
-	// the shadow frustum is comprised of all planes bordering the dark region.
-	// Formally, the shadow frustum is comprised of all planes defined by the
-	// player camera location and two endpoints of a perimeter edge of the
-	// surface formed by connecting all player-facing planes between a player
-	// camera and an enemy.
-	//              /--       
-	//           /--           
-	//        /-+-------+             
-	//     /--  |       |     
-	//  P--     |       |   E   
-	//     \--  |       |             
-	//        \-+-------+            
-	//           \--           
-	//              \--      
-	// 2D example. P for player camera, E for enemy.
-	static void GetShadowFrustum(
-		const FVector& PlayerCameraLocation,
-		const Cuboid& OccludingCuboid,
-		const TArray<Face>& FacesBetween,
-		TArray<FPlane>& ShadowFrustum
-	);
 	// Checks if a Sphere blocks all lines of sight between a player's
     // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Sphere& OccludingSphere);
 	// Checks if a Cuboid blocks all lines of sight between a player's
     // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid);
-    // For each plane, define a half-space by the set of all points
-    // with a positive (dot product with its normal vector.
-    // Checks that every point is within all half-spaces.
-	static bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
     // Converts culling results into changes in in-game visibility.
 	void UpdateVisibility();
 	// Sends character j's location to character i.

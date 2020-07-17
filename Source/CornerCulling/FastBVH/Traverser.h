@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FastBVH/BVH.h"
+#include <vector>
 
 namespace FastBVH {
 
@@ -31,11 +32,11 @@ class Traverser final
   //! \param bvh_ The BVH to be traversed.
   constexpr Traverser(const BVH<Float, Primitive>& bvh_, const Intersector& intersector_) noexcept
       : bvh(bvh_), intersector(intersector_) {}
-  //! Traces a single ray throughout the BVH, getting the closest intersection.
+  //! Traces single ray through the BVH, getting a list of intersected primitives.
   //! \param ray The ray to be traced.
   //! \return An intersection instance.
   //! It may or may not be valid, based on whether or not the ray made a collision.
-  Intersection<Float, Primitive> traverse(const OptSegment& segment) const;
+  std::vector<const Primitive*> traverse(const OptSegment& segment) const;
 };
 
 //! \brief Contains implementation details for the @ref Traverser class.
@@ -66,13 +67,14 @@ template <
     typename Primitive,
     typename Intersector,
     TraverserFlags Flags>
-Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
+std::vector<const Primitive*>
+Traverser<Float, Primitive, Intersector, Flags>
     ::traverse(const OptSegment& segment) const
 {
   using Traversal = TraverserImpl::Traversal<Float>;
 
-  // Intersection result
-  Intersection<Float, Primitive> intersection;
+  // List pointers to intersected primitives.
+  std::vector<const Primitive*> IntersectedPrimitives;
 
   // Bounding box min-t/max-t for left/right children at some point in the tree
   Float bbhits[4];
@@ -99,9 +101,6 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
     stackptr--;
     const auto& node(nodes[ni]);
 
-    // If this node is further than the closest found intersection, continue
-    if (near > intersection.t) continue;
-
     // Is leaf -> Intersect
     if (node.isLeaf())
     {
@@ -115,11 +114,12 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
           // If we're only testing occlusion, then return true on any hit.
           if (Flags & TraverserFlags::OnlyTestOcclusion)
           {
-            return current;
+            IntersectedPrimitives.emplace_back(current.IntersectedP);
+            return IntersectedPrimitives;
           }
           else
           {
-            intersection = closest(intersection, current);
+            IntersectedPrimitives.emplace_back(current.IntersectedP);
           }
         }
       }
@@ -129,15 +129,17 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
       bool hitc1 = nodes[ni + node.right_offset].bbox.intersect(segment, bbhits + 2, bbhits + 3);
 
       // Did we hit both nodes?
-      if (hitc0 && hitc1) {
+      if (hitc0 && hitc1)
+      {
         // We assume that the left child is a closer hit...
         closer = ni + 1;
         other = ni + node.right_offset;
 
         // ... If the right child was actually closer, swap the relevant values.
-        if (bbhits[2] < bbhits[0]) {
+        if (bbhits[2] < bbhits[0])
+        {
           std::swap(bbhits[0], bbhits[2]);
-          std::swap(bbhits[1], bbhits[3])y
+          std::swap(bbhits[1], bbhits[3]);
           std::swap(closer, other);
         }
 
@@ -151,16 +153,17 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
         todo[++stackptr] = Traversal(closer, bbhits[0]);
       }
 
-      else if (hitc0) {
+      else if (hitc0)
+      {
         todo[++stackptr] = Traversal(ni + 1, bbhits[0]);
       }
 
-      else if (hitc1) {
+      else if (hitc1)
+      {
         todo[++stackptr] = Traversal(ni + node.right_offset, bbhits[2]);
       }
     }
   }
-
-  return intersection;
+  return IntersectedPrimitives;
 }
 }  // namespace FastBVH
