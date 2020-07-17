@@ -1,6 +1,6 @@
 # CornerCulling
-Fast, maximally accurate, and latency resistant culling method. C++ and UE4.  
-Uses ray/occluding object intersection tests to check lines of sight from a player's possible locations to the corners of the bounding volumes of enemies.  
+Fast, maximally accurate, and latency resistant occlusion culling method. C++ and UE4.  
+We use ray casting to maximize the accuracy and improve the speed and scalability of currently deployed anti-wallhack solutions, even in high latency settings.
 
 ## Latest demos
 Accuracy:  
@@ -10,9 +10,10 @@ Speed (edges not rendered to maintain frames per second):
 
 ## Technical details
 
-Instead of using slow ray marches or approximations like Potentially Visible Sets (PVS), we use analytical geometry to calculate if each potential line of sight is blocked an occluding object. A huge speed gain comes from caching recent occluders--that which blocked LOS a few milliseconds ago will almost surely block LOS now. We are implementing a ray cast acceleration structure (Bounding Volume Hierarchy) for O(log(n)) object lookup on cache misses. This fast lookup is unnecessary for tactical shooters with ~10 players and ~300 occluders, but it can enable more complex LOS checks that increase accuracy in rare situations. This fast lookup is necessary for BR games with 50+ players and thousands of occluders. A PVS first pass could also increase performance.  
+Instead of using slow ray marches or approximations like Potentially Visible Sets (PVS), we use analytical ray casts to calculate if each potential line of sight is blocked an occluding object. A huge speed gain comes from caching recent occluders--as occluders that blocked LOS recently are likely to block LOS now. Notably, we have implemented a ray cast acceleration structure (bounding volume hierarchy) for O(log(n)) object lookup on cache misses, enabling our solution to scale to large, complex maps.
+For example, this fast lookup is necessary in BR games with 50+ players and thousands of occluders. A PVS first pass could also increase performance.  
 
-Also, we must account for latency to prevent popping. To do so, one should check LOS not from the player's last known position, but from the most aggressively peeking location they could be at now. A practical method to check all such positions is to, on the plane that contains the player and is normal to the LOS, calculate the four corners of the rectangle that contains all possible peeks. Then cull the enemy if and only if a single occluder blocks all four lines of sight.  
+Also, we account for latency to prevent popping. To do so, we check LOS not from the player's last known position, but from all locations they could have moved to. Our method for checking all such positions is to, on the plane that contains the player and is normal to the line from player to enemy, calculate the four corners of the rectangle that contains all possible peeks. Then we cull the enemy if and only if a single occluder blocks all four lines of sight.  
 
 By accounting for latency, we can also afford to speed up average culling time by not culling every tick. Compared to a 100 ms ping, the added delay of culling every 30 ms instead of 10 ms is relatively small--but results in a 3x speedup. Note that, when running multiple server instances per CPU, one should test if it is better to spread out the culling over multiple ticks for all game server instances or to stagger the full culling cycle of each instance. For example, when running 2 servers, one could either cull each whole server on alternating ticks or cull 50% of each server each tick.  
 
