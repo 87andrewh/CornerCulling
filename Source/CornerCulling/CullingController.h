@@ -107,7 +107,7 @@ class ACullingController : public AInfo
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int TimerIncrement = 8;
+	int TimerIncrement = 4;
 
 	// How many frames pass between each cull.
 	int CullingPeriod = 4;

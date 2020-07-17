@@ -314,15 +314,6 @@ bool ACullingController::IsBlocking(const Bundle& B, const Sphere& OccludingSphe
 std::vector<const Cuboid*>
 ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 {
-    // START PATCH
-    //std::vector<const Cuboid*> foo;
-    //for (const Cuboid& C : Cuboids)
-    //{
-    //    foo.emplace_back(&C);
-    //}
-    //return foo;
-    // END PATCH
-
     // Functional sometimes. Nondeterministically fails to return all occluders.
     return CuboidTraverser.get()->traverse(
         OptSegment(
