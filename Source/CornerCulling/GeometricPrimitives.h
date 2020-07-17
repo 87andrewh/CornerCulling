@@ -139,16 +139,19 @@ struct Cuboid
 };
 
 // Checks if a Cuboid intersects a line segment between Start and
-// Start + Direction * Time.
+// Start + Direction * MaxTime.
+// If there is an intersection, returns the time of the point of intersection,
+// measured as a the fractional distance along the line segment.
+// Otherwise, returns NaN.
 // Implements Cyrus-Beck line clipping algorithm.
-inline bool Intersects(
+inline float GetIntersectionTime(
     const Cuboid& C,
     const FVector& Start,
     const FVector& Direction,
-    const float Time = 1)
+    const float MaxTime = 1)
 {
     float TimeEnter = 0;
-    float TimeExit = Time;
+    float TimeExit = MaxTime;
     for (int i = 0; i < CUBOID_F; i++)
     {
         // Numerator of a plane/line intersection test.
@@ -161,7 +164,7 @@ inline bool Intersects(
             // so it cannot intersect the Cuboid.
             if (Num < 0)
             {
-                return false;
+                return std::numeric_limits<double>::quiet_NaN();
             }
         }
         else
@@ -180,11 +183,11 @@ inline bool Intersects(
             // so it cannot intersect the cuboid.
             if (TimeEnter > TimeExit)
             {
-                return false;
+                return std::numeric_limits<double>::quiet_NaN();
             }
         }
     }
-    return true;
+    return TimeEnter;
 }
 
 // BVH API.
@@ -194,11 +197,10 @@ namespace
     using namespace FastBVH;
 
     // Used to calculate the axis-aligned bounding boxes of cuboids.
-    template <typename Float>
     class CuboidBoxConverter final
     {
         public:
-            BBox<Float> operator()(const Cuboid& C) const noexcept
+            BBox<float> operator()(const Cuboid& C) const noexcept
             {
                 float MinX = std::numeric_limits<float>::infinity();
                 float MinY = std::numeric_limits<float>::infinity();
@@ -215,9 +217,9 @@ namespace
                     MaxY = std::max(MaxY, C.Vertices[i].Y);
                     MaxZ = std::max(MaxZ, C.Vertices[i].Z);
                 }
-                auto MinVector = Vector3<Float>{MinX, MinY, MinZ};
-                auto MaxVector = Vector3<Float>{MaxX, MaxY, MaxZ};
-                return BBox<Float>(MinVector, MaxVector);
+                auto MinVector = Vector3<float>{MinX, MinY, MinZ};
+                auto MaxVector = Vector3<float>{MaxX, MaxY, MaxZ};
+                return BBox<float>(MinVector, MaxVector);
             }
     };
     
@@ -227,14 +229,20 @@ namespace
             Intersection<float, Cuboid> operator()(
                 const Cuboid& C, const Ray<float>& ray) const noexcept
             {
-                FVector Start = FVector(ray.o.x, ray.o.y, ray.o.z);
-                FVector Direction = FVector(ray.d.x, ray.d.y, ray.d.z);
-                if (Intersects(C, Start, Direction, std::numeric_limits<float>::infinity()))
+                float Time = GetIntersectionTime(
+                    C,
+                    FVector(ray.o.x, ray.o.y, ray.o.z),
+                    FVector(ray.d.x, ray.d.y, ray.d.z),
+                    1
+                );
+                if (Time > 0)
                 {
-                  return Intersection<float, Cuboid>{};
+                    return Intersection<float, Cuboid>{Time, &C, ray.d};
                 }
-            
-                return Intersection<float, Cuboid>{1, &C, ray.d};
+                else
+                {
+                    return Intersection<float, Cuboid>{};
+                }
             }
     };
 }

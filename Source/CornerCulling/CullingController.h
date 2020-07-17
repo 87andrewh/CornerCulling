@@ -89,6 +89,13 @@ class ACullingController : public AInfo
 	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// All occluding cuboids in the map.
 	TArray<Cuboid> Cuboids;
+    // Bounding volume hierarchy containing cuboids.
+    std::unique_ptr<FastBVH::BVH<float, Cuboid>> CuboidBVH{};
+    CuboidIntersector Intersector;
+    // Would be nice to use std::optional with C++17.
+    std::unique_ptr
+        <Traverser<float, Cuboid, decltype(Intersector), TraverserFlags(1)>>
+        CuboidTraverser {};
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
 	// Queues of line-of-sight bundles needing to be culled.

@@ -43,12 +43,13 @@ public:
     //   Not passed to CullingController because of UE4's garbage collection.
 	Cuboid OccludingCuboid;
 
-	// Update OccludingCuboid according to the vertices.
+	// Updates the OccludingCuboid according to the vertices.
 	void Update();
 
-protected:
-	// Draw the bounds of this occluder in the editor.
+	// Draw the edges of the OccludingCuboid in the level editor.
 	void DrawEdges(bool Persist);
+
+protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;

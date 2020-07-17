@@ -2,6 +2,7 @@
 #include "OccludingCuboid.h"
 #include "OccludingSphere.h"
 #include "EngineUtils.h"
+#include <vector>
 #include <chrono> 
 
 ACullingController::ACullingController()
@@ -20,10 +21,27 @@ void ACullingController::BeginPlay()
 		IsAlive.Emplace(true);
 		Teams.Emplace(Player->Team);
     }
+    vector<Cuboid> tmp;
+    int MaxRenderedCuboids = 100;
     for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
-		Cuboids.Add(Cuboid(Occluder->Vectors));
+        if (MaxRenderedCuboids > 0)
+        {
+            Occluder->DrawEdges(true);
+            MaxRenderedCuboids--;
+        }
+        const Cuboid& C = Cuboid(Occluder->Vectors);
+		Cuboids.Add(C);
+        tmp.emplace_back(C);
     }
+    FastBVH::BuildStrategy<float, 1> BuildStrategy;
+    CuboidBoxConverter Converter;
+    CuboidBVH = std::make_unique
+        <FastBVH::BVH<float, Cuboid>>
+        (BuildStrategy(tmp, Converter));
+    CuboidTraverser = std::make_unique
+        <Traverser<float, Cuboid, decltype(Intersector), TraverserFlags(1)>>
+        (*CuboidBVH.get(), Intersector);
     for (AOccludingSphere* Occluder : TActorRange<AOccludingSphere>(GetWorld()))
     {
         Spheres.Add(Sphere(Occluder->GetActorLocation(), Occluder->Radius));
@@ -229,19 +247,19 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& C)
 {
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
     const TArray<FVector>& Peeks = B.PossiblePeeks;
-    // If cuboid does not block the bundle if it fails to block any peek.
+    // The cuboid does not block the bundle if it fails to block any peek.
     for (const FVector& V : EnemyBounds.TopVertices)
     {
-        if (!Intersects(C, Peeks[0], V - Peeks[0]))
+        if (std::isnan(GetIntersectionTime(C, Peeks[0], V - Peeks[0])))
             return false;
-        if (!Intersects(C, Peeks[1], V - Peeks[1]))
+        if (std::isnan(GetIntersectionTime(C, Peeks[1], V - Peeks[1])))
             return false;
     }
     for (const FVector& V : EnemyBounds.BottomVertices)
     {
-        if (!Intersects(C, Peeks[2], V - Peeks[2]))
+        if (std::isnan(GetIntersectionTime(C, Peeks[2], V - Peeks[2])))
             return false;
-        if (!Intersects(C, Peeks[3], V - Peeks[3]))
+        if (std::isnan(GetIntersectionTime(C, Peeks[3], V - Peeks[3])))
             return false;
     }
 	return true;

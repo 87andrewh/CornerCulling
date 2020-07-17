@@ -7,7 +7,7 @@ namespace FastBVH {
 //! \brief Flags used to configure traverse() method of the BVH.
 enum TraverserFlags {
   //! If any intersection exists, return immediately. The Intersection data is not populated.
-  OnlyTestOcclusion = 1 << 0,
+  OnlyTestOcclusion = 1,
 };
 
 //! \brief Used for traversing a BVH and checking for ray-primitive intersections.
