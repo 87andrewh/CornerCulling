@@ -51,7 +51,7 @@ namespace
             Intersection<float, Cuboid> operator()(
                 const Cuboid& C, const OptSegment& Segment) const noexcept
             {
-                float Time = IntersectionTime(C, Segment.Start, Segment.Delta);
+                float Time = IntersectionTime(&C, Segment.Start, Segment.Delta);
                 if (Time > 0)
                 {
                     return Intersection<float, Cuboid> { Time, &C };

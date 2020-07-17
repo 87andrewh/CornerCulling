@@ -20,7 +20,6 @@ void ACullingController::BeginPlay()
 		IsAlive.Emplace(true);
 		Teams.Emplace(Player->Team);
     }
-    vector<Cuboid> tmp;
     int MaxRenderedCuboids = 100;
     for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
@@ -30,14 +29,13 @@ void ACullingController::BeginPlay()
             MaxRenderedCuboids--;
         }
         const Cuboid& C = Cuboid(Occluder->Vectors);
-		Cuboids.Add(C);
-        tmp.emplace_back(C);
+		Cuboids.emplace_back(C);
     }
     FastBVH::BuildStrategy<float, 1> BuildStrategy;
     CuboidBoxConverter Converter;
     CuboidBVH = std::make_unique
         <FastBVH::BVH<float, Cuboid>>
-        (BuildStrategy(tmp, Converter));
+        (BuildStrategy(Cuboids, Converter));
     CuboidTraverser = std::make_unique
         <Traverser<float, Cuboid, decltype(Intersector)>>
         (*CuboidBVH.get(), Intersector);
@@ -67,11 +65,11 @@ void ACullingController::BenchmarkCull()
             //   When running multiple servers per CPU,
             //   stagger culling periods so that lag spikes do not build up.
 			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-			GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(1, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-			GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(2, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-			GEngine->AddOnScreenDebugMessage(3, 1.0f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(3, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
 		}
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
@@ -170,7 +168,7 @@ void ACullingController::CullWithCache()
         {
             if (CuboidCaches[B.PlayerI][B.EnemyI][k] != NULL)
             {
-			    if (IsBlocking(B, *(CuboidCaches[B.PlayerI][B.EnemyI][k])))
+			    if (IsBlocking(B, CuboidCaches[B.PlayerI][B.EnemyI][k]))
                 {
 			    	Blocked = true;
 			    	CacheTimers[B.PlayerI][B.EnemyI][k] = TotalTicks;
@@ -218,7 +216,7 @@ void ACullingController::CullWithCuboids()
         std::vector<const Cuboid*> Occluders = GetPossibleOccludingCuboids(B);
 		for (const Cuboid* CuboidP : Occluders)
         {
-			if (IsBlocking(B, *CuboidP))
+			if (IsBlocking(B, CuboidP))
             {
 				Blocked = true;
 				int MinI =
@@ -239,7 +237,7 @@ void ACullingController::CullWithCuboids()
 // Checks if the Cuboid blocks visibility between a bundle's player and enemy,
 // returning true if and only if all lines of sights from all peeking positions
 // are blocked.
-bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& C)
+bool ACullingController::IsBlocking(const Bundle& B, const Cuboid* C)
 {
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
     const TArray<FVector>& Peeks = B.PossiblePeeks;
@@ -317,12 +315,12 @@ std::vector<const Cuboid*>
 ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 {
     // START PATCH
-    std::vector<const Cuboid*> foo;
-    for (const Cuboid& C : Cuboids)
-    {
-        foo.emplace_back(&C);
-    }
-    return foo;
+    //std::vector<const Cuboid*> foo;
+    //for (const Cuboid& C : Cuboids)
+    //{
+    //    foo.emplace_back(&C);
+    //}
+    //return foo;
     // END PATCH
 
     // Functional sometimes. Nondeterministically fails to return all occluders.

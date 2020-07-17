@@ -143,7 +143,7 @@ struct Cuboid
 // Otherwise, returns NaN.
 // Implements Cyrus-Beck line clipping algorithm.
 inline float IntersectionTime(
-    const Cuboid& C,
+    const Cuboid* C,
     const FVector& Start,
     const FVector& Direction,
     const float MaxTime = 1)
@@ -153,8 +153,8 @@ inline float IntersectionTime(
     for (int i = 0; i < CUBOID_F; i++)
     {
         // Numerator of a plane/line intersection test.
-        const FVector& Normal = C.Faces[i].Normal;
-        float Num = (Normal | (C.GetVertex(i, 0) - Start));
+        const FVector& Normal = C->Faces[i].Normal;
+        float Num = (Normal | (C->GetVertex(i, 0) - Start));
         float Denom = Direction | Normal;
         if (Denom == 0)
         {

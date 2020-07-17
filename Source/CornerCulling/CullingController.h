@@ -90,7 +90,7 @@ class ACullingController : public AInfo
 	// Timers that track the last time a cache element culled.
 	int CacheTimers[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
 	// All occluding cuboids in the map.
-	TArray<Cuboid> Cuboids;
+	std::vector<Cuboid> Cuboids;
     // Bounding volume hierarchy containing cuboids.
     std::unique_ptr<FastBVH::BVH<float, Cuboid>> CuboidBVH{};
     CuboidIntersector Intersector;
@@ -107,17 +107,17 @@ class ACullingController : public AInfo
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many culling cycles an enemy stays visible for.
 	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int TimerIncrement = 3;
+	int TimerIncrement = 8;
 
 	// How many frames pass between each cull.
-	int CullingPeriod = 9;
+	int CullingPeriod = 4;
 	// Used to calculate short rolling average of frame times.
 	float RollingTotalTime = 0;
 	float RollingAverageTime = 0;
 	// Stores maximum culling time in rolling window.
 	int RollingMaxTime = 0;
 	// Number of ticks in the rolling window.
-	int RollingWindowLength =  CullingPeriod * 20;
+	int RollingWindowLength =  120;
 	// Total tick counter
 	int TotalTicks = 0;
 	// Store overall average culling time (in microseconds)
@@ -153,7 +153,7 @@ class ACullingController : public AInfo
 	bool IsBlocking(const Bundle& B, const Sphere& OccludingSphere);
 	// Checks if a Cuboid blocks all lines of sight between a player's
     // possible peeks and an enemy.
-	bool IsBlocking(const Bundle& B, const Cuboid& OccludingCuboid);
+	bool IsBlocking(const Bundle& B, const Cuboid* OccludingCuboid);
     // Converts culling results into changes in in-game visibility.
 	void UpdateVisibility();
 	// Sends character j's location to character i.

@@ -108,7 +108,7 @@ Traverser<Float, Primitive, Intersector, Flags>
       {
         const auto& obj = build_prims[node.start + o];
 
-        auto current = intersector(obj, segment);
+        auto current = intersector(*obj, segment);
         if (current)
         {
           // If we're only testing occlusion, then return true on any hit.

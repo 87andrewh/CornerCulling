@@ -51,14 +51,20 @@ class BVH final {
   NodeArray<Float> nodes;
 
   //! The primitives from which this BVH was built.
-  ConstIterable<Primitive> primitives;
+  std::vector<const Primitive*> primitives;
 
  public:
   //! Constructs a new BVH instance.
   //! This constructor is ideally called internally
   //! from a @ref BuildStrategy.
   //! \param n The nodes to assign to the BVH.
-  BVH(NodeArray<Float>&& n, const ConstIterable<Primitive>& p) : nodes(std::move(n)), primitives(p) {}
+  BVH(NodeArray<Float>&& n, const ConstIterable<Primitive>& p) : nodes(std::move(n))
+  {
+      for (int i = 0; i < p.size(); i++)
+      {
+          primitives.emplace_back(&p[i]);
+      }
+  }
 
   //! Counts the number of leafs in the BVH.
   //! This can be useful for performance measurement.
@@ -79,7 +85,7 @@ class BVH final {
 
   //! Accesses an iterable container to the primitives in the BVH.
   //! \return An iterable container of the primitive array.
-  inline auto getPrimitives() const noexcept { return primitives; }
+  inline std::vector<const Primitive *> getPrimitives() const noexcept { return primitives; }
 
  protected:
   //! Build the BVH tree out of build_prims
