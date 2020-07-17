@@ -53,7 +53,7 @@ void ACullingController::BenchmarkCull()
 	auto Start = std::chrono::high_resolution_clock::now();
 	Cull();
 	auto Stop = std::chrono::high_resolution_clock::now();
-	SendLocations();
+	UpdateVisibility();
 	int Delta = std::chrono::duration_cast<std::chrono::microseconds>(Stop - Start).count();
 	TotalTime += Delta;
 	RollingTotalTime += Delta;
@@ -96,7 +96,6 @@ void ACullingController::Cull()
 		CullWithSpheres();
 		CullWithCuboids();
 	}
-	// SendLocations();  // Moved to BenchmarkCull to not affect benchmarks.
 }
 
 void ACullingController::PopulateBundles()
@@ -171,7 +170,7 @@ TArray<FVector> ACullingController::GetPossiblePeeks(
 
 void ACullingController::CullWithCache()
 {
-	BundleQueue2.Reset();
+	TArray<Bundle> Remaining;
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
@@ -186,15 +185,16 @@ void ACullingController::CullWithCache()
 		}
 		if (!Blocked)
         {
-			BundleQueue2.Emplace(B);
+			Remaining.Emplace(B);
 		}
 	}
+    BundleQueue = Remaining;
 }
 
 void ACullingController::CullWithSpheres()
 {
-	BundleQueue.Reset();
-	for (Bundle B : BundleQueue2)
+	TArray<Bundle> Remaining;
+	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
         for (Sphere S: Spheres)
@@ -207,16 +207,19 @@ void ACullingController::CullWithSpheres()
 		}
 		if (!Blocked)
         {
-			BundleQueue.Emplace(B);
+			Remaining.Emplace(B);
 		}
 	}
+    BundleQueue = Remaining;
 }
 
 void ACullingController::CullWithCuboids()
 {
+	TArray<Bundle> Remaining;
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
+        //auto intersection = Traverser.traverse();
 		for (int CuboidI : GetPossibleOccludingCuboids(B))
 {
 			if (IsBlocking(B, Cuboids[CuboidI]))
@@ -231,13 +234,10 @@ void ACullingController::CullWithCuboids()
 		}
 		if (!Blocked)
         {
-			// Random offset spreads out culling when all characters become
-			// visible to each other at the same time, such as when walls fall.
-			VisibilityTimers[B.PlayerI][B.EnemyI] = (
-				TimerIncrement + (FMath::Rand() % 3)
-			);
+			Remaining.Emplace(B);
 		}
 	}
+    BundleQueue = Remaining;
 }
 
 // Checks if the Cuboid blocks visibility between a bundle's player and enemy,
@@ -250,16 +250,16 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid& C)
     // The cuboid does not block the bundle if it fails to block any peek.
     for (const FVector& V : EnemyBounds.TopVertices)
     {
-        if (std::isnan(GetIntersectionTime(C, Peeks[0], V - Peeks[0])))
+        if (std::isnan(IntersectionTime(C, Peeks[0], V - Peeks[0])))
             return false;
-        if (std::isnan(GetIntersectionTime(C, Peeks[1], V - Peeks[1])))
+        if (std::isnan(IntersectionTime(C, Peeks[1], V - Peeks[1])))
             return false;
     }
     for (const FVector& V : EnemyBounds.BottomVertices)
     {
-        if (std::isnan(GetIntersectionTime(C, Peeks[2], V - Peeks[2])))
+        if (std::isnan(IntersectionTime(C, Peeks[2], V - Peeks[2])))
             return false;
-        if (std::isnan(GetIntersectionTime(C, Peeks[3], V - Peeks[3])))
+        if (std::isnan(IntersectionTime(C, Peeks[3], V - Peeks[3])))
             return false;
     }
 	return true;
@@ -456,8 +456,18 @@ TArray<int> ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 	return PossibleOccluders;
 }
 
-void ACullingController::SendLocations()
+// Increments visibility timers of bundles that were not culled,
+// and reveals enemies with positive visibility timers.
+void ACullingController::UpdateVisibility()
 {
+	for (Bundle B : BundleQueue)
+    {
+		// Random offset spreads out culling when all characters become
+		// visible to each other at the same time, such as when walls fall.
+		VisibilityTimers[B.PlayerI][B.EnemyI] = (
+			TimerIncrement + (FMath::Rand() % 3)
+		);
+	}
 	for (int i = 0; i < Characters.Num(); i++)
     {
 		if (IsAlive[i])
@@ -474,7 +484,9 @@ void ACullingController::SendLocations()
 }
 
 // Draws a line from character i to j, simulating the sending of a location.
-// TODO: Integrate server location-sending API when deploying to a game.
+// TODO:
+//   This method is currently just a visualization placeholder,
+//   so integrate server location-sending API when deploying to a game.
 void ACullingController::SendLocation(int i, int j)
 {
 	// Only draw sight lines of team 0.

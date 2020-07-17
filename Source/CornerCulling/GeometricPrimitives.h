@@ -4,7 +4,6 @@
 #include "Math/Vector.h"
 #include <algorithm>
 #include <vector>
-#include "FastBVH.h"
 
 // Number of vertices and faces of a cuboid.
 constexpr char CUBOID_V = 8;
@@ -144,7 +143,7 @@ struct Cuboid
 // measured as a the fractional distance along the line segment.
 // Otherwise, returns NaN.
 // Implements Cyrus-Beck line clipping algorithm.
-inline float GetIntersectionTime(
+inline float IntersectionTime(
     const Cuboid& C,
     const FVector& Start,
     const FVector& Direction,
@@ -190,63 +189,6 @@ inline float GetIntersectionTime(
     return TimeEnter;
 }
 
-// BVH API.
-namespace
-{
-    using std::vector;
-    using namespace FastBVH;
-
-    // Used to calculate the axis-aligned bounding boxes of cuboids.
-    class CuboidBoxConverter final
-    {
-        public:
-            BBox<float> operator()(const Cuboid& C) const noexcept
-            {
-                float MinX = std::numeric_limits<float>::infinity();
-                float MinY = std::numeric_limits<float>::infinity();
-                float MinZ = std::numeric_limits<float>::infinity();
-                float MaxX = - std::numeric_limits<float>::infinity();
-                float MaxY = - std::numeric_limits<float>::infinity();
-                float MaxZ = - std::numeric_limits<float>::infinity();
-                for (int i = 0; i < CUBOID_V; i++)
-                {
-                    MinX = std::min(MinX, C.Vertices[i].X);
-                    MinY = std::min(MinY, C.Vertices[i].Y);
-                    MinZ = std::min(MinZ, C.Vertices[i].Z);
-                    MaxX = std::max(MaxX, C.Vertices[i].X);
-                    MaxY = std::max(MaxY, C.Vertices[i].Y);
-                    MaxZ = std::max(MaxZ, C.Vertices[i].Z);
-                }
-                auto MinVector = Vector3<float>{MinX, MinY, MinZ};
-                auto MaxVector = Vector3<float>{MaxX, MaxY, MaxZ};
-                return BBox<float>(MinVector, MaxVector);
-            }
-    };
-    
-    // Used to calculate the intersection between rays and cuboids.
-    class CuboidIntersector final {
-        public:
-            Intersection<float, Cuboid> operator()(
-                const Cuboid& C, const Ray<float>& ray) const noexcept
-            {
-                float Time = GetIntersectionTime(
-                    C,
-                    FVector(ray.o.x, ray.o.y, ray.o.z),
-                    FVector(ray.d.x, ray.d.y, ray.d.z),
-                    1
-                );
-                if (Time > 0)
-                {
-                    return Intersection<float, Cuboid>{Time, &C, ray.d};
-                }
-                else
-                {
-                    return Intersection<float, Cuboid>{};
-                }
-            }
-    };
-}
-
 struct Sphere
 {
     FVector Center;
@@ -264,16 +206,21 @@ struct Sphere
     }
 };
 
-// Optimized line segment that stores starting point and 1 / (End - Start)
+// Optimized line segment that stores:
+//   Start: The start position of the line segment.
+//   Delta: The displacement vector from Start to End.
+//   Reciprocal: The element-wise reciprocal of the displacement vector.
 struct OptSegment
 {
     FVector Start;
     FVector Reciprocal;
+    FVector Delta;
     OptSegment() {}
     OptSegment(FVector Start, FVector End)
     {
         this->Start = Start;
-        Reciprocal = (End - Start).Reciprocal();
+        Delta = End - Start;
+        Reciprocal = Delta.Reciprocal();
     }
 };
 
@@ -323,4 +270,3 @@ struct AABB
         return (TimeMax >= std::max(0.0f, TimeMin)) && (TimeMin < 1);
     }
 };
-

@@ -99,12 +99,7 @@ class ACullingController : public AInfo
 	// All occluding spheres in the map.
 	TArray<Sphere> Spheres;
 	// Queues of line-of-sight bundles needing to be culled.
-    // The two queues alternate as input and output of a CullWith...() function.
-    // For example, CullWithCache takes input from BundleQueue,
-    // and outputs unculled bundles into BundleQueue2.
-    // Then CullWithSpheres takes input from BundleQueue2, etc.
 	TArray<Bundle> BundleQueue;
-	TArray<Bundle> BundleQueue2;
 
 	// Stores how much longer the second character is visible to the first.
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
@@ -196,9 +191,8 @@ class ACullingController : public AInfo
     // with a positive (dot product with its normal vector.
     // Checks that every point is within all half-spaces.
 	static bool InHalfSpaces(const TArray<FVector>& Points, const TArray<FPlane>& Planes);
-	// Sends character j's location to character i for all (i, j) pairs
-    // if character j is visible to character i.
-	void SendLocations();
+    // Converts culling results into changes in in-game visibility.
+	void UpdateVisibility();
 	// Sends character j's location to character i.
 	void SendLocation(int i, int j);
 

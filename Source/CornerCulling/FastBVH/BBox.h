@@ -1,7 +1,7 @@
 #pragma once
 
-#include "FastBVH/Ray.h"
 #include "FastBVH/Vector3.h"
+#include "GeometricPrimitives.h"
 
 #include <cstdint>
 #include <utility>
@@ -67,7 +67,7 @@ struct BBox final {
   //! \param tnear The scale to the nearest box hit.
   //! \param tfar The scale to the farthest box hit.
   //! \return True if the ray hits the box, false otherwise.
-  bool intersect(const Ray<Float>& ray, Float* tnear, Float* tfar) const noexcept;
+  bool intersect(const OptSegment& Segment, Float* tnear, Float* tfar) const noexcept;
 
   //! Determines the index of the dimension
   //! that has the largest space between the
@@ -88,16 +88,16 @@ struct BBox final {
 };
 
 template <typename Float>
-bool BBox<Float>::intersect(const Ray<Float>& ray, Float* tnear, Float* tfar) const noexcept {
-  Float tmin = (min.x - ray.o.x) * ray.inv_d.x;
-  Float tmax = (max.x - ray.o.x) * ray.inv_d.x;
+bool BBox<Float>::intersect(const OptSegment& Segment, Float* tnear, Float* tfar) const noexcept {
+  Float tmin = (min.x - Segment.Start.X) * Segment.Reciprocal.X;
+  Float tmax = (max.x - Segment.Start.X) * Segment.Reciprocal.X;
 
   if (tmin > tmax) {
     std::swap(tmin, tmax);
   }
 
-  Float tymin = (min.y - ray.o.y) * ray.inv_d.y;
-  Float tymax = (max.y - ray.o.y) * ray.inv_d.y;
+  Float tymin = (min.y - Segment.Start.Y) * Segment.Reciprocal.Y;
+  Float tymax = (max.y - Segment.Start.Y) * Segment.Reciprocal.Y;
 
   if (tymin > tymax) {
     std::swap(tymin, tymax);
@@ -110,8 +110,8 @@ bool BBox<Float>::intersect(const Ray<Float>& ray, Float* tnear, Float* tfar) co
   tmin = std::fmax(tymin, tmin);
   tmax = std::fmin(tymax, tmax);
 
-  Float tzmin = (min.z - ray.o.z) * ray.inv_d.z;
-  Float tzmax = (max.z - ray.o.z) * ray.inv_d.z;
+  Float tzmin = (min.z - Segment.Start.Z) * Segment.Reciprocal.Z;
+  Float tzmax = (max.z - Segment.Start.Z) * Segment.Reciprocal.Z;
 
   if (tzmin > tzmax) {
     std::swap(tzmin, tzmax);

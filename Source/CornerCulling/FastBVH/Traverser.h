@@ -5,7 +5,8 @@
 namespace FastBVH {
 
 //! \brief Flags used to configure traverse() method of the BVH.
-enum TraverserFlags {
+enum TraverserFlags
+{
   //! If any intersection exists, return immediately. The Intersection data is not populated.
   OnlyTestOcclusion = 1,
 };
@@ -14,13 +15,15 @@ enum TraverserFlags {
 //! \tparam Float The floating point type used by vector components.
 //! \tparam Primitive The type of the primitive that the BVH was made with.
 //! \tparam Intersector The type of the primitive intersector.
-//! \tparam Flags The flags which configure traversal. See @ref TraverserFlags. By default, no flags are active.
-template <typename Float, typename Primitive, typename Intersector, TraverserFlags Flags = TraverserFlags(0)>
-class Traverser final {
-  //! The BVH to be traversed.
+//! \tparam Flags The flags which configure traversal. By default, no flags are active.
+template <
+    typename Float,
+    typename Primitive,
+    typename Intersector,
+    TraverserFlags Flags = TraverserFlags(0)>
+class Traverser final
+{
   const BVH<Float, Primitive>& bvh;
-
-  /// The ray-primitive intersector.
   Intersector intersector;
 
  public:
@@ -32,7 +35,7 @@ class Traverser final {
   //! \param ray The ray to be traced.
   //! \return An intersection instance.
   //! It may or may not be valid, based on whether or not the ray made a collision.
-  Intersection<Float, Primitive> traverse(const Ray<Float>& ray) const;
+  Intersection<Float, Primitive> traverse(const OptSegment& segment) const;
 };
 
 //! \brief Contains implementation details for the @ref Traverser class.
@@ -40,7 +43,8 @@ namespace TraverserImpl {
 
 //! \brief Node for storing state information during traversal.
 template <typename Float>
-struct Traversal final {
+struct Traversal final
+{
   //! The index of the node to be traversed.
   uint32_t i;
 
@@ -57,8 +61,14 @@ struct Traversal final {
 
 }  // namespace TraverserImpl
 
-template <typename Float, typename Primitive, typename Intersector, TraverserFlags Flags>
-Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>::traverse(const Ray<Float>& ray) const {
+template <
+    typename Float,
+    typename Primitive,
+    typename Intersector,
+    TraverserFlags Flags>
+Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>
+    ::traverse(const OptSegment& segment) const
+{
   using Traversal = TraverserImpl::Traversal<Float>;
 
   // Intersection result
@@ -81,7 +91,8 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>::
 
   auto build_prims = bvh.getPrimitives();
 
-  while (stackptr >= 0) {
+  while (stackptr >= 0)
+  {
     // Pop off the next node to work on.
     int ni = todo[stackptr].i;
     Float near = todo[stackptr].mint;
@@ -92,24 +103,30 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>::
     if (near > intersection.t) continue;
 
     // Is leaf -> Intersect
-    if (node.isLeaf()) {
-      for (uint32_t o = 0; o < node.primitive_count; ++o) {
+    if (node.isLeaf())
+    {
+      for (uint32_t o = 0; o < node.primitive_count; ++o)
+      {
         const auto& obj = build_prims[node.start + o];
 
-        auto current = intersector(obj, ray);
-        if (current) {
-          // If we're only looking for occlusion, then any hit is good enough to return true
-          if (Flags & TraverserFlags::OnlyTestOcclusion) {
+        auto current = intersector(obj, segment);
+        if (current)
+        {
+          // If we're only testing occlusion, then return true on any hit.
+          if (Flags & TraverserFlags::OnlyTestOcclusion)
+          {
             return current;
           }
-          intersection = closest(intersection, current);
+          else
+          {
+            intersection = closest(intersection, current);
+          }
         }
       }
-
     } else {  // Not a leaf
 
-      bool hitc0 = nodes[ni + 1].bbox.intersect(ray, bbhits, bbhits + 1);
-      bool hitc1 = nodes[ni + node.right_offset].bbox.intersect(ray, bbhits + 2, bbhits + 3);
+      bool hitc0 = nodes[ni + 1].bbox.intersect(segment, bbhits, bbhits + 1);
+      bool hitc1 = nodes[ni + node.right_offset].bbox.intersect(segment, bbhits + 2, bbhits + 3);
 
       // Did we hit both nodes?
       if (hitc0 && hitc1) {
@@ -117,15 +134,15 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>::
         closer = ni + 1;
         other = ni + node.right_offset;
 
-        // ... If the right child was actually closer, swap the relavent values.
+        // ... If the right child was actually closer, swap the relevant values.
         if (bbhits[2] < bbhits[0]) {
           std::swap(bbhits[0], bbhits[2]);
-          std::swap(bbhits[1], bbhits[3]);
+          std::swap(bbhits[1], bbhits[3])y
           std::swap(closer, other);
         }
 
         // It's possible that the nearest object is still in the other side, but
-        // we'll check the further-awar node later...
+        // we'll check the further-away node later...
 
         // Push the farther first
         todo[++stackptr] = Traversal(other, bbhits[2]);
@@ -146,5 +163,4 @@ Intersection<Float, Primitive> Traverser<Float, Primitive, Intersector, Flags>::
 
   return intersection;
 }
-
 }  // namespace FastBVH
