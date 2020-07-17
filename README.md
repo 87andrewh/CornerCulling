@@ -19,19 +19,19 @@ By accounting for latency, we can also afford to speed up average culling time b
 Another big performance trick is to keep enemies revealed for a few culling cycles. It can be expensive to calculate that an enemy is revealed, as many occluders must be checked to determine that none of them block LOS. Keeping enemies revealed for an extra ~100 ms does not confer much advantage to wallhackers, but it greatly improves worst-case runtime. This lingering visibility timer can also adapt to server load.
 
 ## Priorities
+- Update demos
 - Ship to CS or Valorant
-- Implement bounding volume hierarchy (for BR games)
-- Talk to engineers at Umbra (to automate map editing)
 
 ## Other tasks (in no order):
 - Implement potentially visible sets to pre-cull enemies.
-- Reach out to graphics experts for review and advice
+- Contact engineers at Umbra (to automate map editing)
+- Reach out to graphics experts for review
 - Implement ways to partially occlude enemies, trimming down their bounding boxes.
   Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
   of their left is visible to one box, and a sliver of their right is visible to another.
   We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
   Alternatively, subdivide one bounding box into many, and cull those individually.
-- Consider sending fake enemy locations to throw off cheaters.
+- Consider sending fake enemy locations to distract cheaters.
 - Design a secure sound system.
 
 ## Research
