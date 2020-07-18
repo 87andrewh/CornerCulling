@@ -1,5 +1,5 @@
 # CornerCulling
-Fast, maximally accurate, and latency resistant occlusion culling method. C++ and UE4.  
+Fast, maximally accurate, scalable, and latency resistant occlusion culling method. Wallhack hand sanitizer.
 We use ray casting to maximize the accuracy and improve the speed and scalability of currently deployed anti-wallhack solutions, even in high latency settings.
 
 ## Latest demos
