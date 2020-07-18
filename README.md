@@ -5,7 +5,7 @@ We use ray casting to maximize the accuracy and improve the speed and scalabilit
 ## Latest demos
 Accuracy:  
 ![](DemoAccuracy.gif)  
-Speed (edges not rendered to maintain frames per second):  
+Speed:  
 ![](DemoSpeed.gif)  
 
 ## Technical details
