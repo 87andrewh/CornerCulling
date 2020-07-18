@@ -20,7 +20,7 @@ void ACullingController::BeginPlay()
 		IsAlive.Emplace(true);
 		Teams.Emplace(Player->Team);
     }
-    int MaxRenderedCuboids = 100;
+    int MaxRenderedCuboids = 64;
     for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
     {
         if (MaxRenderedCuboids > 0)
@@ -65,11 +65,11 @@ void ACullingController::BenchmarkCull()
             //   When running multiple servers per CPU,
             //   stagger culling periods so that lag spikes do not build up.
 			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-			GEngine->AddOnScreenDebugMessage(1, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(1, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
 			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-			GEngine->AddOnScreenDebugMessage(2, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
 			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-			GEngine->AddOnScreenDebugMessage(3, 1.1f, FColor::Yellow, Msg, true, FVector2D(1.5f, 1.5f));
+			GEngine->AddOnScreenDebugMessage(3, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
 		}
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
@@ -359,7 +359,7 @@ void ACullingController::SendLocation(int i, int j)
 			Bounds[j].Center,
 			false,
 			0.015,
-			3,
+			10.0f,
 			FColor::Green);
 	}
 }
