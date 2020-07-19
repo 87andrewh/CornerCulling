@@ -32,11 +32,12 @@ void ACullingController::BeginPlay()
         }
 		Cuboids.emplace_back(Cuboid(C->Vertices));
     }
-    FastBVH::BuildStrategy<float, 1> BuildStrategy;
+    // Build the cuboid BVH.
+    FastBVH::BuildStrategy<float, 1> Builder;
     CuboidBoxConverter Converter;
     CuboidBVH = std::make_unique
         <FastBVH::BVH<float, Cuboid>>
-        (BuildStrategy(Cuboids, Converter));
+        (Builder(Cuboids, Converter));
     CuboidTraverser = std::make_unique
         <Traverser<float, Cuboid, decltype(Intersector)>>
         (*CuboidBVH.get(), Intersector);
@@ -68,10 +69,6 @@ void ACullingController::BenchmarkCull()
 		RollingAverageTime = RollingTotalTime / RollingWindowLength;
 		if (GEngine)
         {
-			// One cull happens every CullingPeriod frames.
-            // TODO:
-            //   When running multiple servers per CPU,
-            //   stagger culling periods so that lag spikes do not build up.
             FVector2D Scale = FVector2D(2.0f, 2.0f);
             FColor Color = FColor::Yellow;
 			FString Msg = "Average time to cull (microseconds): " 
@@ -91,6 +88,9 @@ void ACullingController::BenchmarkCull()
 
 void ACullingController::Cull()
 {
+    // TODO:
+    //   When running multiple servers per CPU, consider staggering
+    //   culling periods to avoid lag spikes.
 	if ((TotalTicks % CullingPeriod) == 0)
     {
         UpdateCharacterBounds();
@@ -108,6 +108,8 @@ void ACullingController::UpdateCharacterBounds()
     // Note that this simulation differs subtly from the real setting,
     // as a real server defines the exact location of all players
     // that are not controlled by the client that it is culling for.
+    // In this simulation, the game displays the current positions of enemies,
+    // but the server calculates LOS with delayed positions.
     if (CULLING_SIMULATED_LATENCY > 0)
     {
         // Equivalent to
@@ -155,6 +157,8 @@ void ACullingController::PopulateBundles()
     {
 		if (IsAlive[i])
         {
+            // TODO:
+            //   Make displacement a function of game physics and state.
             float Latency = GetLatency(i);
             float MaxHorizontalDisplacement = Latency * 300;
             float MaxVerticalDisplacement = Latency * 150;
@@ -164,8 +168,6 @@ void ACullingController::PopulateBundles()
                     && IsAlive[j]
                     && (Teams[i] != Teams[j]))
                 {   
-                    // TODO:
-                    //   Make displacement a function of latency and game state.
                     BundleQueue.emplace_back(
                         Bundle(
                             i,
@@ -266,15 +268,15 @@ void ACullingController::CullWithCuboids()
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
-        //auto intersection = Traverser.traverse();
         std::vector<const Cuboid*> Occluders = GetPossibleOccludingCuboids(B);
 		for (const Cuboid* CuboidP : Occluders)
         {
 			if (IsBlocking(B, CuboidP))
             {
 				Blocked = true;
-				int MinI =
-                    ArgMin(CacheTimers[B.PlayerI][B.EnemyI], CUBOID_CACHE_SIZE);
+				int MinI = ArgMin(
+                    CacheTimers[B.PlayerI][B.EnemyI],
+                    CUBOID_CACHE_SIZE);
 				CuboidCaches[B.PlayerI][B.EnemyI][MinI] = CuboidP;
 				CacheTimers[B.PlayerI][B.EnemyI][MinI] = TotalTicks;
 				break;
