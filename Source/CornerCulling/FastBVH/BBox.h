@@ -87,63 +87,51 @@ struct BBox final {
   }
 };
 
+
+// Checks if the AABB intersects the line segment
+// between Start and End. Uses Slab method.
+// Code adapted from:
+// https://tavianator.com/cgit/dimension.git/tree/libdimension/bvh/bvh.c#n196
 template <typename Float>
 bool BBox<Float>::intersect(
     const OptSegment& Segment,
     Float* tnear,
     Float* tfar) const noexcept 
 {
-  Float tmin = (min.x - Segment.Start.X) * Segment.Reciprocal.X;
-  Float tmax = (max.x - Segment.Start.X) * Segment.Reciprocal.X;
+    Float tx1 = (min.x - Segment.Start.X) * Segment.Reciprocal.X;
+    Float tx2 = (max.x - Segment.Start.X) * Segment.Reciprocal.X;
+    Float tmin = std::fmin(tx1, tx2);
+    Float tmax = std::fmax(tx1, tx2);
+    if (tmin > tmax || tmax < 0 || tmin > 1)
+        return false;
 
-  if (tmin > tmax) {
-    std::swap(tmin, tmax);
-  }
+    Float ty1 = (min.y - Segment.Start.Y) * Segment.Reciprocal.Y;
+    Float ty2 = (max.y - Segment.Start.Y) * Segment.Reciprocal.Y;
+    tmin = std::fmax(tmin, std::fmin(ty1, ty2));
+    tmax = std::fmin(tmax, std::fmax(ty1, ty2));
+    if (tmin > tmax || tmax < 0 || tmin > 1)
+        return false;
 
-  Float tymin = (min.y - Segment.Start.Y) * Segment.Reciprocal.Y;
-  Float tymax = (max.y - Segment.Start.Y) * Segment.Reciprocal.Y;
+    Float tz1 = (min.z - Segment.Start.Z) * Segment.Reciprocal.Z;
+    Float tz2 = (max.z - Segment.Start.Z) * Segment.Reciprocal.Z;
+    tmin = std::fmax(tmin, std::fmin(tz1, tz2));
+    tmax = std::fmin(tmax, std::fmax(tz1, tz2));
+    if (tmin > tmax || tmax < 0 || tmin > 1)
+        return false;
 
-  if (tymin > tymax) {
-    std::swap(tymin, tymax);
-  }
-
-  if ((tmin > tymax) || (tymin > tmax)) {
-    return false;
-  }
-
-  tmin = std::fmax(tymin, tmin);
-  tmax = std::fmin(tymax, tmax);
-
-  Float tzmin = (min.z - Segment.Start.Z) * Segment.Reciprocal.Z;
-  Float tzmax = (max.z - Segment.Start.Z) * Segment.Reciprocal.Z;
-
-  if (tzmin > tzmax) {
-    std::swap(tzmin, tzmax);
-  }
-
-  if ((tmin > tzmax) || (tzmin > tmax)) {
-    return false;
-  }
-
-  tmin = std::fmax(tzmin, tmin);
-  tmax = std::fmin(tzmax, tmax);
-
-  *tnear = tmin;
-  *tfar = tmax;
-
-  return true;
+    *tnear = tmin;
+    *tfar = tmax;
+    return true;
 }
 
 template <typename Float>
 uint32_t BBox<Float>::maxDimension() const noexcept {
   // Assume X axis is longest first
   uint32_t result = 0;
-
-  if (extent[1] > extent[result]) result = 1;
-
-  if (extent[2] > extent[result]) result = 2;
-
+  if (extent[1] > extent[result])
+      result = 1;
+  if (extent[2] > extent[result])
+      result = 2;
   return result;
 }
-
 }  // namespace FastBVH

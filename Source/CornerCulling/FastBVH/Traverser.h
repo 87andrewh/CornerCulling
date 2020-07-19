@@ -107,23 +107,20 @@ Traverser<Float, Primitive, Intersector, Flags>
       for (uint32_t o = 0; o < node.primitive_count; ++o)
       {
         const auto& obj = build_prims[node.start + o];
-
         auto current = intersector(*obj, segment);
         if (current)
         {
+          IntersectedPrimitives.emplace_back(current.IntersectedP);
           // If we're only testing occlusion, then return true on any hit.
           if (Flags & TraverserFlags::OnlyTestOcclusion)
           {
-            IntersectedPrimitives.emplace_back(current.IntersectedP);
             return IntersectedPrimitives;
-          }
-          else
-          {
-            IntersectedPrimitives.emplace_back(current.IntersectedP);
           }
         }
       }
-    } else {  // Not a leaf
+    }
+    else 
+    {  // Not a leaf
 
       bool hitc0 = nodes[ni + 1].bbox.intersect(segment, bbhits, bbhits + 1);
       bool hitc1 = nodes[ni + node.right_offset].bbox.intersect(segment, bbhits + 2, bbhits + 3);
