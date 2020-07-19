@@ -14,22 +14,23 @@ ACullingController::ACullingController()
 void ACullingController::BeginPlay()
 {
 	Super::BeginPlay();
+    // Add characters.
     for (ACornerCullingCharacter* Player : TActorRange<ACornerCullingCharacter>(GetWorld()))
     {
-		Characters.Add(Player);
-		IsAlive.Emplace(true);
-		Teams.Emplace(Player->Team);
+		Characters.emplace_back(Player);
+		IsAlive.emplace_back(true);
+		Teams.emplace_back(Player->Team);
     }
+    // Add occluding cuboids.
     int MaxRenderedCuboids = 64;
-    for (AOccludingCuboid* Occluder : TActorRange<AOccludingCuboid>(GetWorld()))
+    for (AOccludingCuboid* C : TActorRange<AOccludingCuboid>(GetWorld()))
     {
         if (MaxRenderedCuboids > 0)
         {
-            Occluder->DrawEdges(true);
+            C->DrawEdges(true);
             MaxRenderedCuboids--;
         }
-        const Cuboid& C = Cuboid(Occluder->Vectors);
-		Cuboids.emplace_back(C);
+		Cuboids.emplace_back(Cuboid(C->Vertices));
     }
     FastBVH::BuildStrategy<float, 1> BuildStrategy;
     CuboidBoxConverter Converter;
@@ -39,10 +40,17 @@ void ACullingController::BeginPlay()
     CuboidTraverser = std::make_unique
         <Traverser<float, Cuboid, decltype(Intersector)>>
         (*CuboidBVH.get(), Intersector);
-    for (AOccludingSphere* Occluder : TActorRange<AOccludingSphere>(GetWorld()))
+    // Add occluding spheres.
+    for (AOccludingSphere* S : TActorRange<AOccludingSphere>(GetWorld()))
     {
-        Spheres.Add(Sphere(Occluder->GetActorLocation(), Occluder->Radius));
+        Spheres.emplace_back(Sphere(S->GetActorLocation(), S->Radius));
     }
+}
+
+void ACullingController::Tick(float DeltaTime)
+{
+	TotalTicks++;
+	BenchmarkCull();
 }
 
 void ACullingController::BenchmarkCull()
@@ -64,12 +72,17 @@ void ACullingController::BenchmarkCull()
             // TODO:
             //   When running multiple servers per CPU,
             //   stagger culling periods so that lag spikes do not build up.
-			FString Msg = "Average time to cull (microseconds): " + FString::FromInt(int(TotalTime / TotalTicks));
-			GEngine->AddOnScreenDebugMessage(1, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
-			Msg = "Rolling average time to cull (microseconds): " + FString::FromInt(int(RollingAverageTime));
-			GEngine->AddOnScreenDebugMessage(2, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
-			Msg = "Rolling max time to cull (microseconds): " + FString::FromInt(RollingMaxTime);
-			GEngine->AddOnScreenDebugMessage(3, 2.0f, FColor::Yellow, Msg, true, FVector2D(2.0f, 2.0f));
+            FVector2D Scale = FVector2D(2.0f, 2.0f);
+            FColor Color = FColor::Yellow;
+			FString Msg = "Average time to cull (microseconds): " 
+                + FString::FromInt(int(TotalTime / TotalTicks));
+			GEngine->AddOnScreenDebugMessage(1, 2.0f, Color, Msg, true, Scale);
+			Msg = "Rolling average time to cull (microseconds): "
+                + FString::FromInt(int(RollingAverageTime));
+			GEngine->AddOnScreenDebugMessage(2, 2.0f, Color, Msg, true, Scale);
+			Msg = "Rolling max time to cull (microseconds): "
+                + FString::FromInt(RollingMaxTime);
+			GEngine->AddOnScreenDebugMessage(3, 2.0f, Color, Msg, true, Scale);
 		}
 		RollingTotalTime = 0;
 		RollingMaxTime = 0;
@@ -80,6 +93,7 @@ void ACullingController::Cull()
 {
 	if ((TotalTicks % CullingPeriod) == 0)
     {
+        UpdateCharacterBounds();
 		PopulateBundles();
 		CullWithCache();
 		CullWithSpheres();
@@ -87,80 +101,120 @@ void ACullingController::Cull()
 	}
 }
 
-void ACullingController::PopulateBundles()
+void ACullingController::UpdateCharacterBounds()
 {
-    // First update character bounds.
-    Bounds.Reset();
-    for (int i = 0; i < Characters.Num(); i++)
+    Bounds.clear();
+    // This block simulates latency for testing. Remove in production.
+    // Note that this simulation differs subtly from the real setting,
+    // as a real server defines the exact location of all players
+    // that are not controlled by the client that it is culling for.
+    if (CULLING_SIMULATED_LATENCY > 0)
     {
-        if (IsAlive[i])
+        // Equivalent to
+        if (PastBounds.size() >= 3)
         {
-			Bounds.EmplaceAt(i, CharacterBounds(
-				Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
-				Characters[i]->GetActorTransform()
-			));
+            PastBounds.pop_front();
+        }
+        std::vector<CharacterBounds> Temp;
+        for (int i = 0; i < Characters.size(); i++)
+        {
+            if (IsAlive[i])
+            {
+	    		Temp.emplace(
+                    Temp.begin() + i,
+                    CharacterBounds(
+	    			    Characters[i]
+                            ->GetFirstPersonCameraComponent()
+                            ->GetComponentLocation(),
+	    			    Characters[i]->GetActorTransform()));
+            }
+        }
+        PastBounds.emplace_back(Temp);
+        Bounds = PastBounds[0];
+    }
+    else
+    {
+        for (int i = 0; i < Characters.size(); i++)
+        {
+            if (IsAlive[i])
+            {
+	    		Bounds.emplace(
+                    Bounds.begin() + i,
+                    CharacterBounds(
+	    			    Characters[i]->GetFirstPersonCameraComponent()->GetComponentLocation(),
+	    			    Characters[i]->GetActorTransform()));
+            }
         }
     }
-    // Then update bundles.
-	BundleQueue.Reset();
-	for (int i = 0; i < Characters.Num(); i++)
+}
+
+void ACullingController::PopulateBundles()
+{
+	BundleQueue.clear();
+	for (int i = 0; i < Characters.size(); i++)
     {
 		if (IsAlive[i])
         {
-			for (int j = 0; j < Characters.Num(); j++)
+            float Latency = GetLatency(i);
+            float MaxHorizontalDisplacement = Latency * 300;
+            float MaxVerticalDisplacement = Latency * 150;
+			for (int j = 0; j < Characters.size(); j++)
             {
-                // Decrement visibility timers.
-				if (VisibilityTimers[i][j] > 0)
-                {
-					VisibilityTimers[i][j]--;
-				}
 				if (   VisibilityTimers[i][j] == 0
                     && IsAlive[j]
                     && (Teams[i] != Teams[j]))
                 {   
                     // TODO:
                     //   Make displacement a function of latency and game state.
-					BundleQueue.Emplace(
+                    BundleQueue.emplace_back(
                         Bundle(
                             i,
                             j,
                             GetPossiblePeeks(
                                 Bounds[i].CameraLocation,
                                 Bounds[j].Center,
-                                15,  // Maximum horizontal displacement
-                                10   // Maximum vertical displacement
-                            )
-                        )
-                    );
+                                MaxHorizontalDisplacement,
+                                MaxVerticalDisplacement)));
 				}
 			}
 		}
 	}
 }
 
-TArray<FVector> ACullingController::GetPossiblePeeks(
+// Estimates the latency of the client controlling character i in seconds.
+// The estimate should be greater than the expected latency,
+// as underestimating latency results in underestimated peeks,
+// which could result in popping.
+// TODO:
+//   Integrate with server latency estimation tools.
+float ACullingController::GetLatency(int i)
+{
+    return float(CULLING_SIMULATED_LATENCY) / SERVER_TICKRATE;
+}
+
+std::vector<FVector> ACullingController::GetPossiblePeeks(
     const FVector& PlayerCameraLocation,
     const FVector& EnemyLocation,
     float MaxDeltaHorizontal,
     float MaxDeltaVertical)
 {
-    TArray<FVector> Corners;
+    std::vector<FVector> Corners;
     FVector PlayerToEnemy =
         (EnemyLocation - PlayerCameraLocation).GetSafeNormal(1e-6);
 	// Displacement parallel to the XY plane and perpendicular to PlayerToEnemy.
 	FVector Horizontal =
         MaxDeltaHorizontal * FVector(-PlayerToEnemy.Y, PlayerToEnemy.X, 0);
 	FVector Vertical = FVector(0, 0, MaxDeltaVertical);
-	Corners.Emplace(PlayerCameraLocation + Horizontal + Vertical);
-	Corners.Emplace(PlayerCameraLocation - Horizontal + Vertical);
-	Corners.Emplace(PlayerCameraLocation - Horizontal - Vertical);
-	Corners.Emplace(PlayerCameraLocation + Horizontal - Vertical);
+	Corners.emplace_back(PlayerCameraLocation + Horizontal + Vertical);
+	Corners.emplace_back(PlayerCameraLocation - Horizontal + Vertical);
+	Corners.emplace_back(PlayerCameraLocation - Horizontal - Vertical);
+	Corners.emplace_back(PlayerCameraLocation + Horizontal - Vertical);
     return Corners;
 }
 
 void ACullingController::CullWithCache()
 {
-	TArray<Bundle> Remaining;
+	std::vector<Bundle> Remaining;
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
@@ -178,7 +232,7 @@ void ACullingController::CullWithCache()
 		}
 		if (!Blocked)
         {
-			Remaining.Emplace(B);
+			Remaining.emplace_back(B);
 		}
 	}
     BundleQueue = Remaining;
@@ -186,7 +240,7 @@ void ACullingController::CullWithCache()
 
 void ACullingController::CullWithSpheres()
 {
-	TArray<Bundle> Remaining;
+	std::vector<Bundle> Remaining;
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
@@ -200,7 +254,7 @@ void ACullingController::CullWithSpheres()
 		}
 		if (!Blocked)
         {
-			Remaining.Emplace(B);
+			Remaining.emplace_back(B);
 		}
 	}
     BundleQueue = Remaining;
@@ -208,7 +262,7 @@ void ACullingController::CullWithSpheres()
 
 void ACullingController::CullWithCuboids()
 {
-	TArray<Bundle> Remaining;
+	std::vector<Bundle> Remaining;
 	for (Bundle B : BundleQueue)
     {
 		bool Blocked = false;
@@ -228,7 +282,7 @@ void ACullingController::CullWithCuboids()
 		}
 		if (!Blocked)
         {
-			Remaining.Emplace(B);
+			Remaining.emplace_back(B);
 		}
 	}
     BundleQueue = Remaining;
@@ -240,7 +294,7 @@ void ACullingController::CullWithCuboids()
 bool ACullingController::IsBlocking(const Bundle& B, const Cuboid* C)
 {
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-    const TArray<FVector>& Peeks = B.PossiblePeeks;
+    const std::vector<FVector>& Peeks = B.PossiblePeeks;
     // The cuboid does not block the bundle if it fails to block any peek.
     for (const FVector& V : EnemyBounds.TopVertices)
     {
@@ -267,13 +321,13 @@ bool ACullingController::IsBlocking(const Bundle& B, const Sphere& OccludingSphe
 {
     // Unpack constant variables outside of loop for performance.
     const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
-    const TArray<FVector>& Peeks = B.PossiblePeeks;
+    const std::vector<FVector>& Peeks = B.PossiblePeeks;
     const FVector SphereCenter = OccludingSphere.Center;
     const float RadiusSquared = OccludingSphere.Radius * OccludingSphere.Radius;
     for (int i = 0; i < NUM_PEEKS; i++)
     {
         FVector PlayerToSphere = SphereCenter - Peeks[i];
-        const TArray<FVector>* Vertices;
+        const std::vector<FVector>* Vertices;
         if (i < 2)
         {
             Vertices = &EnemyBounds.TopVertices;
@@ -325,19 +379,23 @@ ACullingController::GetPossibleOccludingCuboids(const Bundle& B)
 // and reveals enemies with positive visibility timers.
 void ACullingController::UpdateVisibility()
 {
+    // There are bundles remaining from the culling pipeline.
 	for (Bundle B : BundleQueue)
     {
-        VisibilityTimers[B.PlayerI][B.EnemyI] = TimerIncrement;
+        VisibilityTimers[B.PlayerI][B.EnemyI] = VisibilityTimerMax;
 	}
-	for (int i = 0; i < Characters.Num(); i++)
+    BundleQueue.clear();
+    // Reveal
+	for (int i = 0; i < Characters.size(); i++)
     {
 		if (IsAlive[i])
         {
-			for (int j = 0; j < Characters.Num(); j++)
+			for (int j = 0; j < Characters.size(); j++)
             {
 				if (IsAlive[j] && (VisibilityTimers[i][j] > 0))
                 {
 					SendLocation(i, j);
+                    VisibilityTimers[i][j]--;
 				}
 			}
 		}
@@ -350,22 +408,27 @@ void ACullingController::UpdateVisibility()
 //   so integrate server location-sending API when deploying to a game.
 void ACullingController::SendLocation(int i, int j)
 {
-	// Only draw sight lines of team 0.
 	if (Teams[i] == 0)
     {
 		ConnectVectors(
 			GetWorld(),
-			Bounds[i].Center + FVector(0, 0, 10),
-			Bounds[j].Center,
+			Characters[i]->GetActorLocation() + FVector(0, 0, 40),
+			Characters[j]->GetActorLocation(),
 			false,
-			0.015,
-			10.0f,
+			0.02,
+			7.0f,
 			FColor::Green);
 	}
-}
-
-void ACullingController::Tick(float DeltaTime)
-{
-	TotalTicks++;
-	BenchmarkCull();
+	else if (Teams[i] == 1)
+    {
+        return;  //  Showing LOS of both teams is a bit cluttered and confusing.
+		ConnectVectors(
+			GetWorld(),
+			Characters[i]->GetActorLocation() + FVector(0, 0, 40),
+			Characters[j]->GetActorLocation(),
+			false,
+			0.02,
+			10.0f,
+			FColor(225, 0, 0, 1));
+	}
 }

@@ -12,10 +12,15 @@
 #include <vector>
 #include "CullingController.generated.h"
 
+
+constexpr int SERVER_TICKRATE = 120;
+// Simulated latency in ticks.
+constexpr int CULLING_SIMULATED_LATENCY = 12;
+
 // Number of peeks in each Bundle.
 constexpr char NUM_PEEKS = 4;
 // Maximum number of characters in a game.
-constexpr char MAX_CHARACTERS = 12;
+constexpr char MAX_CHARACTERS = 100;
 // Number of cuboids in each entry of the cuboid cache array.
 constexpr char CUBOID_CACHE_SIZE = 3;
 
@@ -34,20 +39,20 @@ struct CharacterBounds
     // This shortcut assumes that top and bottom vertices share X and Y coordinates.
 	// We could also apply this idea to the left and right,
     // but it would require more work to calculate rotations.
-	TArray<FVector> TopVertices;
-	TArray<FVector> BottomVertices;
+	std::vector<FVector> TopVertices;
+	std::vector<FVector> BottomVertices;
 	CharacterBounds(FVector CameraLocation, FTransform T)
     {
 		this->CameraLocation = CameraLocation;
 		Center = T.GetTranslation();
-		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, 100)));
-		TopVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, 100)));
-		TopVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, 100)));
-		TopVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, 100)));
-		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(30, 15, -100)));
-		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(30, -15, -100)));
-		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, 15, -100)));
-		BottomVertices.Emplace(T.TransformPositionNoScale(FVector(-30, -15, -100)));
+		TopVertices.emplace_back(T.TransformPositionNoScale(FVector(30, 15, 100)));
+		TopVertices.emplace_back(T.TransformPositionNoScale(FVector(30, -15, 100)));
+		TopVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, 15, 100)));
+		TopVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, -15, 100)));
+		BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(30, 15, -100)));
+		BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(30, -15, -100)));
+		BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, 15, -100)));
+		BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, -15, -100)));
 	}
 };
 
@@ -58,8 +63,8 @@ struct Bundle
 {
 	unsigned char PlayerI;
 	unsigned char EnemyI;
-    TArray<FVector> PossiblePeeks;
-	Bundle(int i, int j, const TArray<FVector>& Peeks)
+    std::vector<FVector> PossiblePeeks;
+	Bundle(int i, int j, const std::vector<FVector>& Peeks)
     {
 		PlayerI = i;
 		EnemyI = j;
@@ -75,15 +80,18 @@ class ACullingController : public AInfo
 {
 	GENERATED_BODY()
 	// Keeps track of playable characters.
-	TArray<ACornerCullingCharacter*> Characters;
+	std::vector<ACornerCullingCharacter*> Characters;
 	// Tracks if each character is alive.
     // TODO:
     //  Integrate with Character class to update status.
-	TArray<bool> IsAlive;
+	std::vector<bool> IsAlive;
 	// Tracks team of each character.
-	TArray<char> Teams;
+	std::vector<char> Teams;
 	// Bounding volumes of all characters.
-	TArray<CharacterBounds> Bounds;
+	std::vector<CharacterBounds> Bounds;
+	// Bounding volumes of all characters at past times.
+    // Used to simulate latency in testing.
+	std::deque<std::vector<CharacterBounds>> PastBounds;
 	// Cache of pointers to cuboids that recently blocked LOS from
     // player i to enemy j. Accessed by CuboidCaches[i][j].
 	const Cuboid* CuboidCaches[MAX_CHARACTERS][MAX_CHARACTERS][CUBOID_CACHE_SIZE] = { 0 };
@@ -99,31 +107,34 @@ class ACullingController : public AInfo
         <Traverser<float, Cuboid, decltype(Intersector)>>
         CuboidTraverser {};
 	// All occluding spheres in the map.
-	TArray<Sphere> Spheres;
+	std::vector<Sphere> Spheres;
 	// Queues of line-of-sight bundles needing to be culled.
-	TArray<Bundle> BundleQueue;
-
-	// Stores how much longer the second character is visible to the first.
-	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
-	// How many culling cycles an enemy stays visible for.
-	// An enemy stays visible for TimerIncrement * CullingPeriod ticks.
-	int TimerIncrement = 4;
+	std::vector<Bundle> BundleQueue;
 
 	// How many frames pass between each cull.
-	int CullingPeriod = 4;
+	int CullingPeriod = 3;
+	// Stores how many ticks character j remains visible to character i for.
+	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
+	// How many ticks an enemy stays visible for after being revealed.
+	int VisibilityTimerMax = CullingPeriod * 2;
 	// Used to calculate short rolling average of frame times.
 	float RollingTotalTime = 0;
 	float RollingAverageTime = 0;
 	// Stores maximum culling time in rolling window.
 	int RollingMaxTime = 0;
 	// Number of ticks in the rolling window.
-	int RollingWindowLength =  120;
-	// Total tick counter
+	int RollingWindowLength =  SERVER_TICKRATE;
+	// Total ticks since game start.
 	int TotalTicks = 0;
-	// Store overall average culling time (in microseconds)
+	// Stores total culling time to calculate an overall average.
 	int TotalTime = 0;
 
-	// Calculates all LOS bundles and add them to the queue.
+	// Cull visibility for all player, enemy pairs.
+	void Cull();
+    // Updates the bounding volumes of characters.
+    void UpdateCharacterBounds();
+	// Calculates all bundles of lines of sight between characters,
+    // adding them to the BundleQueue for culling.
 	void PopulateBundles();
 	// Culls all bundles with each player's cache of occluders.
 	void CullWithCache();
@@ -142,12 +153,13 @@ class ACullingController : public AInfo
     //   Inaccurate on very wide enemies, as the most aggressive angle to peek
     //   the left of an enemy is actually perpendicular to the leftmost point
     //   of the enemy, not its center.
-    static TArray<FVector> GetPossiblePeeks(
+    static std::vector<FVector> GetPossiblePeeks(
         const FVector& PlayerCameraLocation,
         const FVector& EnemyLocation,
 		float MaxDeltaHorizontal,
-		float MaxDeltaVertical
-    );
+		float MaxDeltaVertical);
+    // Gets the estimated latency of player i in seconds.
+    float GetLatency(int i);
 	// Checks if a Sphere blocks all lines of sight between a player's
     // possible peeks and an enemy.
 	bool IsBlocking(const Bundle& B, const Sphere& OccludingSphere);
@@ -165,8 +177,6 @@ protected:
 public:
 	ACullingController();
 	virtual void Tick(float DeltaTime) override;
-	// Cull visibility for all player, enemy pairs.
-	void Cull();
 	// Cull while gathering and reporting runtime statistics.
 	void BenchmarkCull();
 

@@ -37,7 +37,7 @@ public:
 	FVector V7 = FVector(200, -200, -200);
 	// Vertices of an occluding cuboid.
 	UPROPERTY()
-	TArray<FVector> Vectors = TArray<FVector>();
+	TArray<FVector> Vertices;
 	// The occluding cuboid.
     // NOTE:
     //   Not passed to CullingController because of UE4's garbage collection.

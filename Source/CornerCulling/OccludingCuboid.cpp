@@ -52,16 +52,16 @@ void AOccludingCuboid::Tick(float DeltaTime)
 void AOccludingCuboid::Update()
 {
 	FTransform T = GetTransform();
-	Vectors.Reset();
-	Vectors.Emplace(T.TransformPosition(V0));
-	Vectors.Emplace(T.TransformPosition(V1));
-	Vectors.Emplace(T.TransformPosition(V2));
-	Vectors.Emplace(T.TransformPosition(V3));
-	Vectors.Emplace(T.TransformPosition(V4));
-	Vectors.Emplace(T.TransformPosition(V5));
-	Vectors.Emplace(T.TransformPosition(V6));
-	Vectors.Emplace(T.TransformPosition(V7));
-	OccludingCuboid = Cuboid(Vectors);
+	Vertices.Reset();
+	Vertices.Emplace(T.TransformPosition(V0));
+	Vertices.Emplace(T.TransformPosition(V1));
+	Vertices.Emplace(T.TransformPosition(V2));
+	Vertices.Emplace(T.TransformPosition(V3));
+	Vertices.Emplace(T.TransformPosition(V4));
+	Vertices.Emplace(T.TransformPosition(V5));
+	Vertices.Emplace(T.TransformPosition(V6));
+	Vertices.Emplace(T.TransformPosition(V7));
+	OccludingCuboid = Cuboid(Vertices);
 }
 
 bool AOccludingCuboid::ShouldTickIfViewportsOnly() const { return true;  }
