@@ -7,6 +7,8 @@ Accuracy:
 ![](DemoAccuracy.gif)  
 Speed:  
 ![](DemoSpeed.gif)  
+Correctness with latency (100 ms):  
+![](DemoLatency.gif)  
 
 ## Technical details
 
