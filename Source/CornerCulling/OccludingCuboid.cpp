@@ -36,6 +36,8 @@ void AOccludingCuboid::BeginPlay()
 	Super::BeginPlay();
 	SetActorTickEnabled(false);
 	Update();
+    if (DrawEdgesInGame)
+	    DrawEdges(true);
 }
 
 void AOccludingCuboid::Tick(float DeltaTime)

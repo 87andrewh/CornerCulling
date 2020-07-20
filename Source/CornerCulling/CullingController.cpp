@@ -22,25 +22,22 @@ void ACullingController::BeginPlay()
 		Teams.emplace_back(Player->Team);
     }
     // Add occluding cuboids.
-    int MaxRenderedCuboids = 64;
     for (AOccludingCuboid* C : TActorRange<AOccludingCuboid>(GetWorld()))
     {
-        if (MaxRenderedCuboids > 0)
-        {
-            C->DrawEdges(true);
-            MaxRenderedCuboids--;
-        }
 		Cuboids.emplace_back(Cuboid(C->Vertices));
     }
-    // Build the cuboid BVH.
-    FastBVH::BuildStrategy<float, 1> Builder;
-    CuboidBoxConverter Converter;
-    CuboidBVH = std::make_unique
-        <FastBVH::BVH<float, Cuboid>>
-        (Builder(Cuboids, Converter));
-    CuboidTraverser = std::make_unique
-        <Traverser<float, Cuboid, decltype(Intersector)>>
-        (*CuboidBVH.get(), Intersector);
+    if (Cuboids.size() > 0)
+    {
+        // Build the cuboid BVH.
+        FastBVH::BuildStrategy<float, 1> Builder;
+        CuboidBoxConverter Converter;
+        CuboidBVH = std::make_unique
+            <FastBVH::BVH<float, Cuboid>>
+            (Builder(Cuboids, Converter));
+        CuboidTraverser = std::make_unique
+            <Traverser<float, Cuboid, decltype(Intersector)>>
+            (*CuboidBVH.get(), Intersector);
+    }
     // Add occluding spheres.
     for (AOccludingSphere* S : TActorRange<AOccludingSphere>(GetWorld()))
     {

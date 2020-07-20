@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "CullingController.h"
+#include "GeometricPrimitives.h"
 #include "OccludingCuboid.generated.h"
 
 // Cuboid that occludes vision.
@@ -38,6 +39,8 @@ public:
 	// Vertices of an occluding cuboid.
 	UPROPERTY()
 	TArray<FVector> Vertices;
+	UPROPERTY(EditAnywhere)
+    bool DrawEdgesInGame = true;
 	// The occluding cuboid.
     // NOTE:
     //   Redundant and separate from CullingController
