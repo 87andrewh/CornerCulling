@@ -11,14 +11,22 @@ constexpr char CUBOID_F = 6;
 // Number of vertices in a face of a cuboid.
 constexpr char CUBOID_FACE_V = 4;
 
+// Maps a Face with index i's j-th vertex onto a Cuboid vertex index.
+constexpr char FaceCuboidMap[6][4] =
+{
+    0, 1, 2, 3,
+    2, 6, 7, 3,
+    0, 3, 7, 4,
+    0, 4, 5, 1,
+    1, 5, 6, 2,
+    4, 7, 6, 5
+};
+
 // Quadrilateral face of a cuboid.
 struct Face
 {
 	FVector Normal;
-	// Indexes of vertices on the perimeter. Counter-clockwise from outside perspective.
-	unsigned char Perimeter [CUBOID_FACE_V];
-	Face() {}
-	// Faces are ordered
+    // Index of the face in its the Cuboid;
 	//	   .+---------+  
 	//	 .' |  0    .'|  
 	//	+---+-----+'  |  
@@ -29,72 +37,32 @@ struct Face
 	//	|.'    5  | .'   
 	//	+---------+'    
 	//	1 is in front.
+	char Index;
+	Face() {}
 	Face(int i, FVector Vertices[])
     {
-		switch (i)
-        {
-			case 0:
-				Perimeter[0] = 0;
-				Perimeter[1] = 1;
-				Perimeter[2] = 2;
-				Perimeter[3] = 3;
-				break;
-			case 1:
-				Perimeter[0] = 2;
-				Perimeter[1] = 6;
-				Perimeter[2] = 7;
-				Perimeter[3] = 3;
-				break;
-			case 2:
-				Perimeter[0] = 0;
-				Perimeter[1] = 3;
-				Perimeter[2] = 7;
-				Perimeter[3] = 4;
-				break;
-			case 3:
-				Perimeter[0] = 0;
-				Perimeter[1] = 4;
-				Perimeter[2] = 5;
-				Perimeter[3] = 1;
-				break;
-			case 4:
-				Perimeter[0] = 1;
-				Perimeter[1] = 5;
-				Perimeter[2] = 6;
-				Perimeter[3] = 2;
-				break;
-			case 5:
-				Perimeter[0] = 4;
-				Perimeter[1] = 7;
-				Perimeter[2] = 6;
-				Perimeter[3] = 5;
-				break;
-		}
 		Normal = FVector::CrossProduct(
-			Vertices[Perimeter[1]] - Vertices[Perimeter[0]],
-			Vertices[Perimeter[2]] - Vertices[Perimeter[0]]
+			Vertices[FaceCuboidMap[i][1]] - Vertices[FaceCuboidMap[i][0]],
+			Vertices[FaceCuboidMap[i][2]] - Vertices[FaceCuboidMap[i][0]]
 		).GetSafeNormal(1e-9);
 	}
 	Face(const Face& F)
     {
-		Perimeter[0] = F.Perimeter[0];
-		Perimeter[1] = F.Perimeter[1];
-		Perimeter[2] = F.Perimeter[2];
-		Perimeter[3] = F.Perimeter[3];
+        Index = F.Index;
 		Normal = FVector(F.Normal);
 	}
 };
 
 // A six-sided polyhedron defined by 8 vertices.
-// A valid configuration of vertices is  not strictly enforced.
-// A face could contain non-coplanar vertices.
+// A valid configuration of vertices is user-enforced.
+// For example, all vertices of a face should be coplanar.
 struct Cuboid
 {
 	Face Faces[CUBOID_F];
 	FVector Vertices[CUBOID_V];
 	Cuboid () {}
-	// Construct a cuboid from a list of vertices.
-	// vertices should be ordered
+	// Constructs a cuboid from a list of vertices.
+	// Vertices are ordered and indexed as such:
 	//	    .1------0
 	//	  .' |    .'|
 	//	 2---+--3'  |
@@ -132,7 +100,7 @@ struct Cuboid
 	// Return the vertex on face i with perimeter index j.
 	FVector GetVertex(int i, int j) const
     {
-		return Vertices[Faces[i].Perimeter[j]];
+		return Vertices[FaceCuboidMap[i][j]];
 	}
 };
 

@@ -112,7 +112,7 @@ class ACullingController : public AInfo
 	std::vector<Bundle> BundleQueue;
 
 	// How many frames pass between each cull.
-	int CullingPeriod = 3;
+	int CullingPeriod = 4;
 	// Stores how many ticks character j remains visible to character i for.
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many ticks an enemy stays visible for after being revealed.
