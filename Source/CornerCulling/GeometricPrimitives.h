@@ -85,7 +85,6 @@ struct Cuboid
 			Faces[i] = Face(i, Vertices);
 		}
 	}
-	// Copy constructor.
 	Cuboid(const Cuboid& C)
     {
 		for (int i = 0; i < CUBOID_V; i++)

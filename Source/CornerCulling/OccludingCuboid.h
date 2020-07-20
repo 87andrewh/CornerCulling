@@ -40,12 +40,12 @@ public:
 	TArray<FVector> Vertices;
 	// The occluding cuboid.
     // NOTE:
-    //   Not passed to CullingController because of UE4's garbage collection.
+    //   Redundant and separate from CullingController
+    //   because of UE4's garbage collection.
 	Cuboid OccludingCuboid;
 
 	// Updates the OccludingCuboid according to the vertices.
 	void Update();
-
 	// Draw the edges of the OccludingCuboid in the level editor.
 	void DrawEdges(bool Persist);
 
