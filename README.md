@@ -26,6 +26,7 @@ Another big performance trick is to keep enemies revealed for a few culling cycl
 
 ## Other tasks (in no order):
 - Implement early exit on GetPotentiallyOccludingCuboids()
+- Implement SIMD, easy case on bundles of 4 bounding box vertices.
 - Clean up code and documentation
 - Implement occluding cylinders
 - Implement potentially visible sets to pre-cull enemies.
