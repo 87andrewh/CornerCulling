@@ -18,11 +18,11 @@ constexpr int SERVER_TICKRATE = 120;
 constexpr int CULLING_SIMULATED_LATENCY = 12;
 
 // Number of peeks in each Bundle.
-constexpr char NUM_PEEKS = 4;
+constexpr int NUM_PEEKS = 4;
 // Maximum number of characters in a game.
-constexpr char MAX_CHARACTERS = 100;
+constexpr int MAX_CHARACTERS = 100;
 // Number of cuboids in each entry of the cuboid cache array.
-constexpr char CUBOID_CACHE_SIZE = 3;
+constexpr int CUBOID_CACHE_SIZE = 3;
 
 // A volume that bounds a character.
 // Has a bounding sphere to quickly check visibility.

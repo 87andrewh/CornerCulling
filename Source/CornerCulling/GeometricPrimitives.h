@@ -97,7 +97,7 @@ struct Cuboid
 		}
 	}
 	// Return the vertex on face i with perimeter index j.
-	FVector GetVertex(int i, int j) const
+	const FVector& GetVertex(int i, int j) const
     {
 		return Vertices[FaceCuboidMap[i][j]];
 	}
@@ -108,7 +108,8 @@ struct Cuboid
 // If there is an intersection, returns the time of the point of intersection,
 // measured as a the fractional distance along the line segment.
 // Otherwise, returns NaN.
-// Implements Cyrus-Beck line clipping algorithm.
+// Implements Cyrus-Beck line clipping algorithm from:
+// http://geomalgorithms.com/a13-_intersect-4.html
 inline float IntersectionTime(
     const Cuboid* C,
     const FVector& Start,
@@ -122,7 +123,7 @@ inline float IntersectionTime(
         // Numerator of a plane/line intersection test.
         const FVector& Normal = C->Faces[i].Normal;
         float Num = (Normal | (C->GetVertex(i, 0) - Start));
-        float Denom = Direction | Normal;
+        float Denom = Normal | Direction;
         if (Denom == 0)
         {
             // Start is outside of the plane,
@@ -153,6 +154,73 @@ inline float IntersectionTime(
         }
     }
     return TimeEnter;
+}
+
+// Checks if a Cuboid intersects all line segments between Starts[i]
+// and Ends[i]
+// Implements Cyrus-Beck line clipping algorithm from:
+// http://geomalgorithms.com/a13-_intersect-4.html
+// Uses SIMD for 8x throughput.
+inline bool IntersectsAll(
+    const Cuboid* C,
+    __m256 StartXs,
+    __m256 StartYs,
+    __m256 StartZs,
+    __m256 EndXs,
+    __m256 EndYs,
+    __m256 EndZs)
+{
+    __m256 Zero = _mm256_set1_ps(0);
+    __m256 EnterTimes = Zero;
+    __m256 ExitTimes = _mm256_set1_ps(1);
+    for (int i = 0; i < CUBOID_F; i++)
+    {
+        const FVector& Normal = C->Faces[i].Normal;
+        __m256 NormalXs = _mm256_set1_ps(Normal.X);
+        __m256 NormalYs = _mm256_set1_ps(Normal.Y);
+        __m256 NormalZs = _mm256_set1_ps(Normal.Z);
+        const FVector& Vertex = C->GetVertex(i, 0);
+        __m256 Nums =
+            _mm256_add_ps(
+                _mm256_mul_ps(
+                    _mm256_sub_ps(_mm256_set1_ps(Vertex.X), StartXs),
+                    NormalXs),
+                _mm256_add_ps(
+                    _mm256_mul_ps(
+                        _mm256_sub_ps(_mm256_set1_ps(Vertex.Y), StartYs),
+                        NormalYs),
+                    _mm256_mul_ps(
+                        _mm256_sub_ps(_mm256_set1_ps(Vertex.Z), StartZs),
+                        NormalZs)));
+        __m256 Denoms =
+            _mm256_add_ps(
+                _mm256_mul_ps(_mm256_sub_ps(EndXs, StartXs), NormalXs),
+                _mm256_add_ps(
+                    _mm256_mul_ps(_mm256_sub_ps(EndYs, StartYs), NormalYs),
+                    _mm256_mul_ps(_mm256_sub_ps(EndZs, StartZs), NormalZs)));
+        int MissMask = _mm256_movemask_ps(
+            _mm256_and_ps(
+                _mm256_cmp_ps(Denoms, Zero, _CMP_EQ_OQ),
+                _mm256_cmp_ps(Nums, Zero, _CMP_LE_OQ)));
+        if (MissMask != 0)
+            return false;
+        __m256 Times = _mm256_div_ps(Nums, Denoms);
+        __m256 PositiveMask = _mm256_cmp_ps(Denoms, Zero, _CMP_GT_OS);
+        __m256 NegativeMask = _mm256_cmp_ps(Denoms, Zero, _CMP_LT_OS);
+        EnterTimes = _mm256_blendv_ps(
+            EnterTimes,
+            _mm256_max_ps(EnterTimes, Times),
+            NegativeMask);
+        ExitTimes = _mm256_blendv_ps(
+            ExitTimes,
+            _mm256_min_ps(ExitTimes, Times),
+            PositiveMask);
+        MissMask = _mm256_movemask_ps(
+            _mm256_cmp_ps(EnterTimes, ExitTimes, _CMP_GT_OS));
+        if (MissMask != 0)
+            return false;
+    }
+    return true;
 }
 
 struct Sphere

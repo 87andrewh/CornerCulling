@@ -292,24 +292,82 @@ void ACullingController::CullWithCuboids()
 // are blocked.
 bool ACullingController::IsBlocking(const Bundle& B, const Cuboid* C)
 {
-    const CharacterBounds& EnemyBounds = Bounds[B.EnemyI];
+    const std::vector<FVector>& TopVertices = Bounds[B.EnemyI].TopVertices;
+    const std::vector<FVector>& BottomVertices = Bounds[B.EnemyI].BottomVertices;
     const std::vector<FVector>& Peeks = B.PossiblePeeks;
-    // The cuboid does not block the bundle if it fails to block any peek.
-    for (const FVector& V : EnemyBounds.TopVertices)
+
+    for (const FVector& V : TopVertices)
     {
         if (std::isnan(IntersectionTime(C, Peeks[0], V - Peeks[0])))
             return false;
         if (std::isnan(IntersectionTime(C, Peeks[1], V - Peeks[1])))
             return false;
     }
-    for (const FVector& V : EnemyBounds.BottomVertices)
+    for (const FVector& V : BottomVertices)
     {
         if (std::isnan(IntersectionTime(C, Peeks[2], V - Peeks[2])))
             return false;
         if (std::isnan(IntersectionTime(C, Peeks[3], V - Peeks[3])))
             return false;
     }
-	return true;
+    return true;
+
+    __m256 StartXs = _mm256_set_ps(
+        Peeks[0].X, Peeks[0].X, Peeks[0].X, Peeks[0].X,
+        Peeks[1].X, Peeks[1].X, Peeks[1].X, Peeks[1].X);
+    __m256 StartYs = _mm256_set_ps(
+        Peeks[0].Y, Peeks[0].Y, Peeks[0].Y, Peeks[0].Y,
+        Peeks[1].Y, Peeks[1].Y, Peeks[1].Y, Peeks[1].Y);
+    __m256 StartZs = _mm256_set_ps(
+        Peeks[0].Z, Peeks[0].Z, Peeks[0].Z, Peeks[0].Z,
+        Peeks[1].Z, Peeks[1].Z, Peeks[1].Z, Peeks[1].Z);
+    __m256 EndXs = _mm256_set_ps(
+        TopVertices[0].X, TopVertices[1].X,
+        TopVertices[2].X, TopVertices[3].X,
+        TopVertices[0].X, TopVertices[1].X,
+        TopVertices[2].X, TopVertices[3].X);
+    __m256 EndYs = _mm256_set_ps(
+        TopVertices[0].Y, TopVertices[1].Y,
+        TopVertices[2].Y, TopVertices[3].Y,
+        TopVertices[0].Y, TopVertices[1].Y,
+        TopVertices[2].Y, TopVertices[3].Y);
+    __m256 EndZs = _mm256_set_ps(
+        TopVertices[0].Z, TopVertices[1].Z,
+        TopVertices[2].Z, TopVertices[3].Z,
+        TopVertices[0].Z, TopVertices[1].Z,
+        TopVertices[2].Z, TopVertices[3].Z);
+    if (!IntersectsAll(C, StartXs, StartYs, StartZs, EndXs, EndYs, EndZs))
+    {
+        return false;
+    }
+    else
+    {
+        StartXs = _mm256_set_ps(
+            Peeks[2].X, Peeks[2].X, Peeks[2].X, Peeks[2].X,
+            Peeks[3].X, Peeks[3].X, Peeks[3].X, Peeks[3].X);
+        StartYs = _mm256_set_ps(
+            Peeks[2].Y, Peeks[2].Y, Peeks[2].Y, Peeks[2].Y,
+            Peeks[3].Y, Peeks[3].Y, Peeks[3].Y, Peeks[3].Y);
+        StartZs = _mm256_set_ps(
+            Peeks[2].Z, Peeks[2].Z, Peeks[2].Z, Peeks[2].Z,
+            Peeks[3].Z, Peeks[3].Z, Peeks[3].Z, Peeks[3].Z);
+        EndXs = _mm256_set_ps(
+            BottomVertices[0].X, BottomVertices[1].X,
+            BottomVertices[2].X, BottomVertices[3].X,
+            BottomVertices[0].X, BottomVertices[1].X,
+            BottomVertices[2].X, BottomVertices[3].X);
+        EndYs = _mm256_set_ps(
+            BottomVertices[0].Y, BottomVertices[1].Y,
+            BottomVertices[2].Y, BottomVertices[3].Y,
+            BottomVertices[0].Y, BottomVertices[1].Y,
+            BottomVertices[2].Y, BottomVertices[3].Y);
+        EndZs = _mm256_set_ps(
+            BottomVertices[0].Z, BottomVertices[1].Z,
+            BottomVertices[2].Z, BottomVertices[3].Z,
+            BottomVertices[0].Z, BottomVertices[1].Z,
+            BottomVertices[2].Z, BottomVertices[3].Z);
+        return IntersectsAll(C, StartXs, StartYs, StartZs, EndXs, EndYs, EndZs);
+    }
 }
 
 // Checks sphere intersection for all line segments between
