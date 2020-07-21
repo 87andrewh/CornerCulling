@@ -116,7 +116,7 @@ class ACullingController : public AInfo
 	// Stores how many ticks character j remains visible to character i for.
 	int VisibilityTimers[MAX_CHARACTERS][MAX_CHARACTERS] = {0};
 	// How many ticks an enemy stays visible for after being revealed.
-	int VisibilityTimerMax = CullingPeriod * 2;
+	int VisibilityTimerMax = CullingPeriod * 3;
 	// Used to calculate short rolling average of frame times.
 	float RollingTotalTime = 0;
 	float RollingAverageTime = 0;

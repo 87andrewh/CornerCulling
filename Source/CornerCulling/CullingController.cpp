@@ -157,8 +157,8 @@ void ACullingController::PopulateBundles()
             // TODO:
             //   Make displacement a function of game physics and state.
             float Latency = GetLatency(i);
-            float MaxHorizontalDisplacement = Latency * 300;
-            float MaxVerticalDisplacement = Latency * 150;
+            float MaxHorizontalDisplacement = Latency * 350;
+            float MaxVerticalDisplacement = Latency * 200;
 			for (int j = 0; j < Characters.size(); j++)
             {
 				if (   VisibilityTimers[i][j] == 0
@@ -295,23 +295,6 @@ bool ACullingController::IsBlocking(const Bundle& B, const Cuboid* C)
     const std::vector<FVector>& TopVertices = Bounds[B.EnemyI].TopVertices;
     const std::vector<FVector>& BottomVertices = Bounds[B.EnemyI].BottomVertices;
     const std::vector<FVector>& Peeks = B.PossiblePeeks;
-
-    for (const FVector& V : TopVertices)
-    {
-        if (std::isnan(IntersectionTime(C, Peeks[0], V - Peeks[0])))
-            return false;
-        if (std::isnan(IntersectionTime(C, Peeks[1], V - Peeks[1])))
-            return false;
-    }
-    for (const FVector& V : BottomVertices)
-    {
-        if (std::isnan(IntersectionTime(C, Peeks[2], V - Peeks[2])))
-            return false;
-        if (std::isnan(IntersectionTime(C, Peeks[3], V - Peeks[3])))
-            return false;
-    }
-    return true;
-
     __m256 StartXs = _mm256_set_ps(
         Peeks[0].X, Peeks[0].X, Peeks[0].X, Peeks[0].X,
         Peeks[1].X, Peeks[1].X, Peeks[1].X, Peeks[1].X);

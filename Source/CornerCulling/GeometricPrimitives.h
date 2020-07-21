@@ -170,7 +170,7 @@ inline bool IntersectsAll(
     __m256 EndYs,
     __m256 EndZs)
 {
-    __m256 Zero = _mm256_set1_ps(0);
+    const __m256 Zero = _mm256_set1_ps(0);
     __m256 EnterTimes = Zero;
     __m256 ExitTimes = _mm256_set1_ps(1);
     for (int i = 0; i < CUBOID_F; i++)
@@ -181,29 +181,32 @@ inline bool IntersectsAll(
         __m256 NormalZs = _mm256_set1_ps(Normal.Z);
         const FVector& Vertex = C->GetVertex(i, 0);
         __m256 Nums =
-            _mm256_add_ps(
-                _mm256_mul_ps(
-                    _mm256_sub_ps(_mm256_set1_ps(Vertex.X), StartXs),
-                    NormalXs),
-                _mm256_add_ps(
-                    _mm256_mul_ps(
-                        _mm256_sub_ps(_mm256_set1_ps(Vertex.Y), StartYs),
-                        NormalYs),
+            _mm256_fmadd_ps(
+                _mm256_sub_ps(_mm256_set1_ps(Vertex.X), StartXs),
+                NormalXs,
+                _mm256_fmadd_ps(
+                    _mm256_sub_ps(_mm256_set1_ps(Vertex.Y), StartYs),
+                    NormalYs,
                     _mm256_mul_ps(
                         _mm256_sub_ps(_mm256_set1_ps(Vertex.Z), StartZs),
                         NormalZs)));
         __m256 Denoms =
-            _mm256_add_ps(
-                _mm256_mul_ps(_mm256_sub_ps(EndXs, StartXs), NormalXs),
-                _mm256_add_ps(
-                    _mm256_mul_ps(_mm256_sub_ps(EndYs, StartYs), NormalYs),
+            _mm256_fmadd_ps(
+                _mm256_sub_ps(EndXs, StartXs),
+                NormalXs,
+                _mm256_fmadd_ps(
+                    _mm256_sub_ps(EndYs, StartYs),
+                    NormalYs,
                     _mm256_mul_ps(_mm256_sub_ps(EndZs, StartZs), NormalZs)));
-        int MissMask = _mm256_movemask_ps(
-            _mm256_and_ps(
-                _mm256_cmp_ps(Denoms, Zero, _CMP_EQ_OQ),
-                _mm256_cmp_ps(Nums, Zero, _CMP_LE_OQ)));
-        if (MissMask != 0)
+        // A line segment is parallel to and outside of a face.
+        if (0 !=
+            _mm256_movemask_ps(
+                _mm256_and_ps(
+                    _mm256_cmp_ps(Denoms, Zero, _CMP_EQ_OQ),
+                    _mm256_cmp_ps(Nums, Zero, _CMP_LE_OQ))))
+        {
             return false;
+        }
         __m256 Times = _mm256_div_ps(Nums, Denoms);
         __m256 PositiveMask = _mm256_cmp_ps(Denoms, Zero, _CMP_GT_OS);
         __m256 NegativeMask = _mm256_cmp_ps(Denoms, Zero, _CMP_LT_OS);
@@ -215,10 +218,11 @@ inline bool IntersectsAll(
             ExitTimes,
             _mm256_min_ps(ExitTimes, Times),
             PositiveMask);
-        MissMask = _mm256_movemask_ps(
-            _mm256_cmp_ps(EnterTimes, ExitTimes, _CMP_GT_OS));
-        if (MissMask != 0)
+        if (0 !=
+            _mm256_movemask_ps(_mm256_cmp_ps(EnterTimes, ExitTimes, _CMP_GT_OS)))
+        {
             return false;
+        }
     }
     return true;
 }
@@ -227,7 +231,7 @@ struct Sphere
 {
     FVector Center;
     float Radius;
-    Sphere() { }
+    Sphere() {}
     Sphere(FVector Loc, float R)
     {
         Center = Loc;
