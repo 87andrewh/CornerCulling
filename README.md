@@ -12,14 +12,15 @@ Correctness with latency (100 ms):
 
 ## Technical details
 
-Instead of using slow ray marches or approximations like Potentially Visible Sets (PVS), we use analytical ray casts to calculate if each potential line of sight is blocked an occluding object. A huge speed gain comes from caching recent occluders--as occluders that blocked LOS recently are likely to block LOS now. Notably, we have implemented a ray cast acceleration structure (bounding volume hierarchy) for O(log(n)) object lookup on cache misses, enabling our solution to scale to large, complex maps.
-For example, this fast lookup is necessary in BR games with 50+ players and thousands of occluders. A PVS first pass could also increase performance.  
+Instead of using slow ray marches or approximations like Potentially Visible Sets (PVS), we use analytical ray casts to calculate if each potential line of sight is blocked an occluding object. A huge speed gain comes from caching recent occluders--as occluders that blocked LOS recently are likely to block LOS now. We have also implemented a ray cast acceleration structure (bounding volume hierarchy) for O(log(n)) object lookup on cache misses, enabling our solution to scale to large, complex maps. This structure, combined with a PVS first pass, enables this system to protect BR games with 50+ players and thousands of occluders.
 
-Also, we account for latency to prevent popping. To do so, we check LOS not from the player's last known position, but from all locations they could have moved to. Our method for checking all such positions is to, on the plane that contains the player and is normal to the line from player to enemy, calculate the four corners of the rectangle that contains all possible peeks. Then we cull the enemy if and only if a single occluder blocks all four lines of sight.  
+We also account for latency to prevent popping. To do so, we check LOS not from the player's last known position, but from all locations they could have moved to. Our method for checking all such positions is to, on the plane that contains the player and is normal to the line from player to enemy, calculate the four corners of the rectangle that contains all possible peeks. Then we cull the enemy if and only if a single convex occluder blocks all four lines of sight.  
 
 By accounting for latency, we can also afford to speed up average culling time by not culling every tick. Compared to a 100 ms ping, the added delay of culling every 30 ms instead of 10 ms is relatively small--but results in a 3x speedup. Note that, when running multiple server instances per CPU, one should test if it is better to spread out the culling over multiple ticks for all game server instances or to stagger the full culling cycle of each instance. For example, when running 2 servers, one could either cull each whole server on alternating ticks or cull 50% of each server each tick.  
 
-Another big performance trick is to keep enemies revealed for a few culling cycles. It can be expensive to calculate that an enemy is revealed, as many occluders must be checked to determine that none of them block LOS. Keeping enemies revealed for an extra ~100 ms does not confer much advantage to wallhackers, but it greatly improves worst-case runtime. This lingering visibility timer can also adapt to server load.
+## Regarding PVS
+
+In executed well, PVS is a viable alternative on small maps without dynamic geometry. Runtime performance would be good, and accuracy would be close. On Dust 2 or Ascent, you would need approximately a (200, 200, 10) grid. It's only 20 GB on the sever's disk (hash table lookup should be fine, no need for space-filling curve cache optimizations). Latency lookahead is also simple. Still, you would need a simple ray cast system to handle smokes and moving doors.
 
 ## Priorities
 - Ship (preferably to CS or Valorant)
