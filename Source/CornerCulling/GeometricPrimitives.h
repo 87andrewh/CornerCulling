@@ -103,6 +103,95 @@ struct Cuboid
 	}
 };
 
+struct Sphere
+{
+    FVector Center;
+    float Radius;
+    Sphere() {}
+    Sphere(FVector Loc, float R)
+    {
+        Center = Loc;
+        Radius = R;
+    }
+    Sphere(const Sphere& S)
+    {
+        Center = S.Center;
+        Radius = S.Radius;
+    }
+};
+
+// Bundle representing lines of sight between a player's possible peeks
+// and an enemy's bounds. Bounds are stored in a field of
+// the CullingController to prevent data duplication.
+struct Bundle
+{
+	unsigned char PlayerI;
+	unsigned char EnemyI;
+    std::vector<FVector> PossiblePeeks;
+	Bundle(int i, int j, const std::vector<FVector>& Peeks)
+    {
+		PlayerI = i;
+		EnemyI = j;
+        PossiblePeeks = Peeks;
+	}
+};
+
+// A volume that bounds a character.
+// Has a bounding sphere to quickly check visibility.
+// Uses the vertices of a bounding box to accurately check visibility.
+struct CharacterBounds
+{
+    // Location of character's camera.
+    FVector CameraLocation;
+    // Center of character and bounding spheres.
+    FVector Center;
+    float BoundingSphereRadius = 105;
+    // Divide vertices into top and bottom to skip the bottom half when
+    // a player peeks it from above, and vice versa for peeks from below.
+    // This computational shortcut assumes that each bottom vertex is
+    // directly below a corresponding top vertex.
+    std::vector<FVector> TopVertices;
+    std::vector<FVector> BottomVertices;
+    // We also precalculate and store representations optimized for SIMD.
+    __m256 TopVerticesXs;
+    __m256 TopVerticesYs;
+    __m256 TopVerticesZs;
+    __m256 BottomVerticesXs;
+    __m256 BottomVerticesYs;
+    __m256 BottomVerticesZs;
+    CharacterBounds(FVector CameraLocation, FTransform T)
+    {
+        this->CameraLocation = CameraLocation;
+        Center = T.GetTranslation();
+        TopVertices.emplace_back(T.TransformPositionNoScale(FVector(30, 15, 100)));
+        TopVertices.emplace_back(T.TransformPositionNoScale(FVector(30, -15, 100)));
+        TopVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, 15, 100)));
+        TopVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, -15, 100)));
+        BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(30, 15, -100)));
+        BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(30, -15, -100)));
+        BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, 15, -100)));
+        BottomVertices.emplace_back(T.TransformPositionNoScale(FVector(-30, -15, -100)));
+        TopVerticesXs = _mm256_set_ps(
+            TopVertices[0].X, TopVertices[1].X, TopVertices[2].X, TopVertices[3].X, 
+            TopVertices[0].X, TopVertices[1].X, TopVertices[2].X, TopVertices[3].X);
+        TopVerticesYs = _mm256_set_ps(
+            TopVertices[0].Y, TopVertices[1].Y, TopVertices[2].Y, TopVertices[3].Y, 
+            TopVertices[0].Y, TopVertices[1].Y, TopVertices[2].Y, TopVertices[3].Y);
+        TopVerticesZs = _mm256_set_ps(
+            TopVertices[0].Z, TopVertices[1].Z, TopVertices[2].Z, TopVertices[3].Z, 
+            TopVertices[0].Z, TopVertices[1].Z, TopVertices[2].Z, TopVertices[3].Z);
+        BottomVerticesXs = _mm256_set_ps(
+            BottomVertices[0].X, BottomVertices[1].X, BottomVertices[2].X, BottomVertices[3].X, 
+            BottomVertices[0].X, BottomVertices[1].X, BottomVertices[2].X, BottomVertices[3].X);
+        BottomVerticesYs = _mm256_set_ps(
+            BottomVertices[0].Y, BottomVertices[1].Y, BottomVertices[2].Y, BottomVertices[3].Y, 
+            BottomVertices[0].Y, BottomVertices[1].Y, BottomVertices[2].Y, BottomVertices[3].Y);
+        BottomVerticesZs = _mm256_set_ps(
+            BottomVertices[0].Z, BottomVertices[1].Z, BottomVertices[2].Z, BottomVertices[3].Z, 
+            BottomVertices[0].Z, BottomVertices[1].Z, BottomVertices[2].Z, BottomVertices[3].Z);
+    }
+};
+
 // Checks if a Cuboid intersects a line segment between Start and
 // Start + Direction * MaxTime.
 // If there is an intersection, returns the time of the point of intersection,
@@ -227,22 +316,101 @@ inline bool IntersectsAll(
     return true;
 }
 
-struct Sphere
+// Checks if the Cuboid blocks visibility between a player and enemy,
+// returning true if and only if all lines of sights from the player's possible
+// peeks are blocked.
+// Assumes that the BottomVerticies of the enemy bounding box are directly below
+// the TopVerticies.
+inline bool IsBlocking(
+    const std::vector<FVector>& Peeks,
+    const CharacterBounds& Bounds,
+    const Cuboid* C)
 {
-    FVector Center;
-    float Radius;
-    Sphere() {}
-    Sphere(FVector Loc, float R)
+    __m256 StartXs = _mm256_set_ps(
+        Peeks[0].X, Peeks[0].X, Peeks[0].X, Peeks[0].X,
+        Peeks[1].X, Peeks[1].X, Peeks[1].X, Peeks[1].X);
+    __m256 StartYs = _mm256_set_ps(
+        Peeks[0].Y, Peeks[0].Y, Peeks[0].Y, Peeks[0].Y,
+        Peeks[1].Y, Peeks[1].Y, Peeks[1].Y, Peeks[1].Y);
+    __m256 StartZs = _mm256_set_ps(
+        Peeks[0].Z, Peeks[0].Z, Peeks[0].Z, Peeks[0].Z,
+        Peeks[1].Z, Peeks[1].Z, Peeks[1].Z, Peeks[1].Z);
+    if (
+        !IntersectsAll(
+            C,
+            StartXs, StartYs, StartZs,
+            Bounds.TopVerticesXs, Bounds.TopVerticesYs, Bounds.TopVerticesZs))
     {
-        Center = Loc;
-        Radius = R;
+        return false;
     }
-    Sphere(const Sphere& S)
+    else
     {
-        Center = S.Center;
-        Radius = S.Radius;
+        StartXs = _mm256_set_ps(
+            Peeks[2].X, Peeks[2].X, Peeks[2].X, Peeks[2].X,
+            Peeks[3].X, Peeks[3].X, Peeks[3].X, Peeks[3].X);
+        StartYs = _mm256_set_ps(
+            Peeks[2].Y, Peeks[2].Y, Peeks[2].Y, Peeks[2].Y,
+            Peeks[3].Y, Peeks[3].Y, Peeks[3].Y, Peeks[3].Y);
+        StartZs = _mm256_set_ps(
+            Peeks[2].Z, Peeks[2].Z, Peeks[2].Z, Peeks[2].Z,
+            Peeks[3].Z, Peeks[3].Z, Peeks[3].Z, Peeks[3].Z);
+        return IntersectsAll(
+            C,
+            StartXs, StartYs, StartZs,
+            Bounds.BottomVerticesXs, Bounds.BottomVerticesYs, Bounds.BottomVerticesZs);
     }
-};
+}
+
+// Checks sphere intersection for all line segments between
+// a player's possible peeks and the vertices of an enemy's bounding box.
+// Uses sphere and line segment intersection with formula from:
+// http://paulbourke.net/geometry/circlesphere/index.html#linesphere
+inline bool IsBlocking(
+    const std::vector<FVector>& Peeks,
+    const CharacterBounds& Bounds,
+    const Sphere& OccludingSphere)
+{
+    // Unpack constant variables outside of loop for performance.
+    const FVector SphereCenter = OccludingSphere.Center;
+    const float RadiusSquared = OccludingSphere.Radius * OccludingSphere.Radius;
+    for (int i = 0; i < Peeks.size(); i++)
+    {
+        FVector PlayerToSphere = SphereCenter - Peeks[i];
+        const std::vector<FVector>* Vertices;
+        if (i < 2)
+        {
+            Vertices = &Bounds.TopVertices;
+        }
+        else
+        {
+            Vertices = &Bounds.BottomVertices;
+        }
+        for (FVector V : *Vertices)
+        {
+            FVector PlayerToEnemy = V - Peeks[i];
+            float u = (PlayerToEnemy | PlayerToSphere) / (PlayerToEnemy | PlayerToEnemy);
+            // The point on the line between player and enemy that is closest to
+            // the center of the occluding sphere lies between player and enemy.
+            // Thus the sphere might intersect the line segment.
+            if ((0 < u) && (u < 1))
+            {
+                FVector ClosestPoint = Peeks[i] + u * PlayerToEnemy;
+                // The point lies within the radius of the sphere,
+                // so the sphere intersects the line segment.
+                if ((SphereCenter - ClosestPoint).SizeSquared() > RadiusSquared)
+                {
+                    return false;
+                }
+            }
+            // The sphere does not intersect the line segment.
+            else
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 // Optimized line segment that stores:
 //   Start: The start position of the line segment.

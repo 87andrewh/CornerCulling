@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FastBVH/Vector3.h"
+#include "GeometricPrimitives.h"
 
 #include <limits>
 
@@ -8,8 +9,7 @@ namespace FastBVH {
 
 //! \brief Stores information regarding a ray intersection with a primitive.
 //! \tparam Float The floating point type used for vector components.
-//! \tparam Primitive The type of primitive used to construct the BVH.
-template <typename Float, typename Primitive>
+template <typename Float>
 struct Intersection final {
   /// A simple type definition for 3D vector.
   using Vec3 = Vector3<Float>;
@@ -18,7 +18,7 @@ struct Intersection final {
   Float t = std::numeric_limits<Float>::infinity();
 
   // Pointer to the intersected object.
-  const Primitive* IntersectedP = NULL;
+  const Cuboid* IntersectedP = NULL;
 
   //! Gets the position at the ray hit the object.
   //! \param ray_pos The ray position.
@@ -34,8 +34,10 @@ struct Intersection final {
 //! \brief Gets the closest of two intersections.
 //! \returns A copy of either @p a or @p b, depending on which one is closer.
 template <typename Float, typename Primitive>
-Intersection<Float, Primitive> closest(const Intersection<Float, Primitive>& a,
-                                       const Intersection<Float, Primitive>& b) noexcept {
+Intersection<Float> closest(
+    const Intersection<Float>& a,
+    const Intersection<Float>& b) noexcept
+{
   return (a.t < b.t) ? a : b;
 }
 
