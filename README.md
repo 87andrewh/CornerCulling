@@ -31,7 +31,11 @@ In executed well, PVS is a viable alternative on small maps without dynamic geom
 ## Other tasks (in no order):
 - Clean up code and documentation
 - Implement occluding cylinders
-- Implement potentially visible sets to pre-cull enemies.
+- Implement potentially visible sets to pre-cull enemies
+- Optimize BVH (unnecessary, but fun)
+  - Surface Area Heuristic, or better
+  - 4-way BVH, SIMD for collision detection
+  - https://www.youtube.com/watch?v=6BIfqfC1i7U
 - Contact engineers at Umbra (to automate mapping)
 - Reach out to graphics experts for review
 - Implement ways to partially occlude enemies, trimming down their bounding boxes.
