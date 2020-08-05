@@ -23,7 +23,10 @@ By accounting for latency, we can also afford to speed up average culling time b
 In executed well, PVS is a viable alternative on small maps without dynamic geometry. Runtime performance would be good, and accuracy would be close. On Dust 2 or Ascent, you would need approximately a (200, 200, 10) grid. It's only 20 GB on the sever's disk (hash table lookup should be fine, no need for space-filling curve cache optimizations). Latency lookahead is also simple. Still, you would need a simple ray cast system to handle smokes and moving doors.
 
 ## Priorities
-- Ship (preferably to CS or Valorant)
+- Ship to VALORANT
+- Ship to CS:GO
+  - Create SourceMod CS:GO plugin
+  - Present side-by-side demo
 
 ## Other tasks (in no order):
 - Clean up code and documentation
