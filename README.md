@@ -23,9 +23,8 @@ By accounting for latency, we can also afford to speed up average culling time b
 In executed well, PVS is a viable alternative on small maps without dynamic geometry. Runtime performance would be good, and accuracy would be close. On Dust 2 or Ascent, you would need approximately a (200, 200, 10) grid. It's only 20 GB on the sever's disk (hash table lookup should be fine, no need for space-filling curve cache optimizations). Latency lookahead is also simple. Still, you would need a simple ray cast system to handle smokes and moving doors.
 
 ## Priorities
-- Ship to VALORANT
 - Ship to CS:GO
-  - Create SourceMod CS:GO plugin
+  - Port to CS:GO server plugin (Metamod:Source)
   - Present side-by-side demo
 
 ## Other tasks (in no order):
@@ -55,9 +54,6 @@ In executed well, PVS is a viable alternative on small maps without dynamic geom
 - https://www.gamasutra.com/view/feature/3394/occlusion_culling_algorithms.php?print=1  
 - [Coorg97] Coorg, S., and S. Teller, "Real-Time Occlusion Culling for Models with Large Occluders", in Proceedings 1997 Symposium on Interactive 3D Graphics, pp. 83-90, April 1997.  
 - [Hudson97b] Hudson, T., D. Manocha, J. Cohen, M. Lin, K. Hoff and H. Zhang, "Accelerated Occlusion Culling using Shadow Frusta", Thirteenth ACM Symposium on Computational Geometry, Nice, France, June 1997.  
-
-### Improved bounding boxes (k-dops):  
-- https://www.youtube.com/watch?v=h4GBU-NXJ1c  
 
 ### Faster raytracing:  
 - Real-Time Rendering, Fourth Edition  <-- Read it. It's very good.
