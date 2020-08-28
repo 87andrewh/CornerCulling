@@ -8,7 +8,8 @@ AOccludingCuboid::AOccludingCuboid()
 }
 
 // Draw edges of the occluder. Currently only implemented for cuboids.
-// Code is not performance optimal, but it doesn't need to be.
+// Code is not performance optimal, but it doesn't need to be
+// becasue they should not be drawn during a real game.
 void AOccludingCuboid::DrawEdges(bool Persist = false)
 {
     UWorld* World = GetWorld();
@@ -23,7 +24,7 @@ void AOccludingCuboid::DrawEdges(bool Persist = false)
                 OccludingCuboid.GetVertex(i, j),
                 OccludingCuboid.GetVertex(i, (j + 1) % CUBOID_FACE_V),
                 Persist,
-                1 + (DrawPeriod / 120.0f),
+                0.2 + (DrawPeriod / 120.0f),
                 3,
                 FColor::Black);
         }

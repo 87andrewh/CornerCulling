@@ -14,7 +14,7 @@ class AOccludingCuboid : public AActor
 	// Counts ticks to not draw every tick.
 	int TickCount = 0;
 	// Frames between draw calls.
-	int DrawPeriod = 60;
+	int DrawPeriod = 30;
 
 public:	
 	AOccludingCuboid();

@@ -9,6 +9,8 @@ Speed:
 ![](DemoSpeed.gif)  
 Correctness with latency (100 ms):  
 ![](DemoLatency.gif)  
+Counter-Strike: Global Offensive:  
+![](DemoCSGO.gif)  
 
 ## Technical details
 
@@ -23,9 +25,9 @@ By accounting for latency, we can also afford to speed up average culling time b
 In executed well, PVS is a viable alternative on small maps without dynamic geometry. Runtime performance would be good, and accuracy would be close. On Dust 2 or Ascent, you would need approximately a (200, 200, 10) grid. It's only 20 GB on the sever's disk (hash table lookup should be fine, no need for space-filling curve cache optimizations). Latency lookahead is also simple. Still, you would need a simple ray cast system to handle smokes and moving doors.
 
 ## Priorities
-- Ship to CS:GO
-  - Port to CS:GO server plugin (Metamod:Source)
-  - Present side-by-side demo
+- Ship to CS:GO offical servers
+  - Refine with feedback from community servers
+  - Contact Valve
 
 ## Other tasks (in no order):
 - Clean up code and documentation
