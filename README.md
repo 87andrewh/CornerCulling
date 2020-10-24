@@ -25,27 +25,22 @@ By accounting for latency, we can also afford to speed up average culling time b
 In executed well, PVS is a viable alternative on small maps without dynamic geometry. Runtime performance would be good, and accuracy would be close. On Dust 2 or Ascent, you would need approximately a (200, 200, 10) grid. It's only 20 GB on the sever's disk (hash table lookup should be fine, no need for space-filling curve cache optimizations). Latency lookahead is also simple. Still, you would need a simple ray cast system to handle smokes and moving doors.
 
 ## Priorities
-- Ship to CS:GO offical servers
-  - Refine with feedback from community servers
-  - Contact Valve
+- Maintain CS:GO port: https://github.com/87andrewh/CornerCullingSourceEngine
 
 ## Other tasks (in no order):
 - Clean up code and documentation
 - Implement occluding cylinders
 - Implement potentially visible sets to pre-cull enemies
-- Optimize BVH (unnecessary, but fun)
+- Optimize BVH (currently unnecessary, but could be fun)
   - Surface Area Heuristic, or better
   - 4-way BVH, SIMD for collision detection
   - https://www.youtube.com/watch?v=6BIfqfC1i7U
 - Contact engineers at Umbra (to automate mapping)
-- Reach out to graphics experts for review
-- Implement ways to partially occlude enemies, trimming down their bounding boxes.
-  Currently, if two objects each occlude 99% of an enemy, the enemy is still visible because a sliver
-  of their left is visible to one box, and a sliver of their right is visible to another.
-  We would have to implement a polyhedra clipping algorithm, or some discrete approximation of it.
-  Alternatively, subdivide one bounding box into many, and cull those individually.
-- Design method to send fake enemy locations.
-- Design a secure sound system.
+- Consider ways for objects that partially occlude enemies (left and right half) to occlude the whole  
+  - Subdivide bounding boxes
+  - Trim bounding boxes
+  - Switch to exhaustive brute-force algorithm
+- Consider faking enemy locations
 
 ## Research
 
